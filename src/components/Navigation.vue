@@ -1,7 +1,7 @@
 <template>
-    <v-navigation-drawer app v-model="drawer" :rail="rail" permanent @click="rail = false" width="300">
+    <v-navigation-drawer v-if="isLoggedIn" app v-model="drawer" :rail="rail" permanent @click="rail = false" width="300">
         <v-list-item :prepend-avatar="logo" class="ml-1 mb-2"nav>
-            <p class="text-h6 text-blue-darken-4 font-weight-black">CMS PORTAL</p>
+            <p class="text-h6 text-blue-darken-4 font-weight-black">SPCF LMS</p>
             <template v-slot:append>
                 <v-btn icon variant="text" @click.stop="rail = !rail">
                     <v-avatar rounded="circle" icon="fa-chevron-left" class="fa-xs"></v-avatar>
@@ -12,8 +12,8 @@
         <v-list-item prepend-avatar="https://randomuser.me/api/portraits/men/85.jpg" class="ml-1 my-2" nav>
             <template v-slot:title>
                 <div id="user-info">
-                    <p class="text-subtitle-1 font-weight-bold text-grey-darken-3 mb-0">John Carlo Paz</p>
-                    <p class="text-subtitle-2 text-grey-darken-2 mt-0">jpaz@spcf.edu.ph</p>
+                    <p class="text-subtitle-1 font-weight-bold text-grey-darken-3 mb-0">{{ session ? session.name : 'Guest' }}</p>
+                    <p class="text-subtitle-2 text-grey-darken-2 mt-0">{{ session ? session.email : '' }}</p>
                 </div>
 
             </template>
@@ -21,19 +21,38 @@
         <v-divider></v-divider>
 
         <v-list density="compact" nav>
-            <v-list-item v-for="(navigation, index) in navigations" :key="index" :prepend-icon="navigation.icon" :value="navigation.title" :to="navigation.to">
+            <v-list-item v-for="(navigation, index) in visibleNavigations" :key="index" :prepend-icon="navigation.icon" :value="navigation.title" :to="navigation.to">
                 <template v-slot:title>
                     <p class="text-subtitle-1 text-grey-darken-2 font-weight-bold mb-0">{{ navigation.title }}</p>
                 </template>
             </v-list-item>
 
         </v-list>
+
+        <div class="nav-footer">
+            <div class="pa-3 d-flex justify-center">
+                <v-tooltip v-if="rail">
+                    <template #activator="{ props }">
+                        <v-btn v-bind="props" icon variant="tonal" color="error" @click="logout" aria-label="Logout">
+                            <v-icon icon="fa-sign-out-alt"></v-icon>
+                        </v-btn>
+                    </template>
+                    <span>Logout</span>
+                </v-tooltip>
+
+                <v-btn v-else block variant="tonal" color="error" @click="logout" prepend-icon="fa-sign-out-alt">
+                    Logout
+                </v-btn>
+            </div>
+        </div>
     </v-navigation-drawer>
 </template>
 
 <script>
-import logo from '../assets/spcf_logo.png'
-import { ref } from 'vue'
+import logo from '../assets/spcf-logo.png'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import usePermission from '@/composables/usePermission'
 const drawer = ref(true)
 const rail = ref(true)
 
@@ -43,16 +62,50 @@ export default {
         return {
             logo,
             navigations: [
-                { icon: 'fa-house', title: 'Home', to: '/home' },
-                { icon: 'fa-user-graduate', title: 'Information', to: '/information' },
-                { icon: 'fa-book', title: 'Enrolled Subjects', to: '/subjects' },
-                { icon: 'fa-id-card', title: 'Grade Display', to: '/grade' },
-                { icon: 'fa-cash-register', title: 'Account & Payment', to: '/payment' },
+                { icon: 'fa-book', title: 'Dashboard', to: '/home' },
+                { icon: 'fa-book-open', title: 'Manage Books', to: '/manage-books' },
+                { icon: 'fa-id-card', title: 'Borrow Books', to: '/borrow-books' },
+                { icon: 'fa-handshake-simple', title: 'Return Books', to: '/return-books' },
+                { icon: 'fa-receipt', title: 'Records', to: '/records' },
+                { icon: 'fa-user-tie', title: 'Admin Management', to: '/amin-management' },
+                { icon: 'fa-users', title: 'Student Management', to: '/student-management' },
+                { icon: 'fa-cogs', title: 'Settings', to: '/settings' },
             ],
         }
     },
     setup() {
-        return { drawer, rail }
+        const router = useRouter()
+
+        const { session, role, can } = usePermission()
+
+        // reactive logged-in flag
+        const isLoggedIn = computed(() => !!(session && session.value))
+
+        const logout = () => {
+            try {
+                localStorage.removeItem('app_session')
+            } catch (e) {
+                // ignore
+            }
+            // notify same-tab listeners and other tabs
+            try { window.dispatchEvent(new Event('storage')) } catch(e) {}
+            router.push({ name: 'login' })
+        }
+
+        // Return drawer/rail and permission helpers + logout. Visible navigation list computed in the options API section.
+        return { drawer, rail, session, role, can, logout, isLoggedIn }
+    },
+    computed: {
+        visibleNavigations() {
+            const r = this.role
+            const allowedBasic = ['Dashboard', 'Manage Books', 'Borrow Books', 'Return Books']
+            if (!r) return []
+            if (r === 'Super Admin') return this.navigations
+            if (r === 'Admin' || r === 'User') {
+                return this.navigations.filter(n => allowedBasic.includes(n.title))
+            }
+            return []
+        },
     },
 }
 </script>
@@ -61,4 +114,15 @@ export default {
     #user-info p {
         line-height: 1.2;
     }
+
+.nav-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: transparent;
+}
+.nav-footer .v-btn {
+    border-radius: 0;
+}
 </style>

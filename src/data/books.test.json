@@ -1,0 +1,102 @@
+[
+  {
+    "title": "The Pragmatic Programmer",
+    "author": "Andrew Hunt, David Thomas",
+    "publisher": "Addison-Wesley",
+    "yearOfProduction": 1999,
+    "edition": "1st",
+    "placeOfPublication": "Boston",
+    "bookCode": "PRG-001",
+    "notes": "Classic software engineering book; good for developers of all levels."
+  },
+  {
+    "title": "Clean Code",
+    "author": "Robert C. Martin",
+    "publisher": "Prentice Hall",
+    "yearOfProduction": 2008,
+    "edition": "1st",
+    "placeOfPublication": "Upper Saddle River",
+    "bookCode": "CLN-002",
+    "notes": "Essential reading on writing maintainable code."
+  },
+  {
+    "title": "Design Patterns: Elements of Reusable Object-Oriented Software",
+    "author": "Erich Gamma, Richard Helm, Ralph Johnson, John Vlissides",
+    "publisher": "Addison-Wesley",
+    "yearOfProduction": 1994,
+    "edition": "1st",
+    "placeOfPublication": "Boston",
+    "bookCode": "DP-003",
+    "notes": "Also known as the 'Gang of Four' book."
+  },
+  {
+    "title": "Refactoring: Improving the Design of Existing Code",
+    "author": "Martin Fowler",
+    "publisher": "Addison-Wesley",
+    "yearOfProduction": 1999,
+    "edition": "1st",
+    "placeOfPublication": "Boston",
+    "bookCode": "REF-004",
+    "notes": "Key patterns for safe refactoring techniques."
+  },
+  {
+    "title": "You Don't Know JS: Scope & Closures",
+    "author": "Kyle Simpson",
+    "publisher": "O'Reilly Media",
+    "yearOfProduction": 2014,
+    "edition": "1st",
+    "placeOfPublication": "Sebastopol",
+    "bookCode": "YDK-005",
+    "notes": "Part of a series explaining JavaScript in depth."
+  },
+  {
+    "title": "Introduction to Algorithms",
+    "author": "Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein",
+    "publisher": "MIT Press",
+    "yearOfProduction": 2009,
+    "edition": "3rd",
+    "placeOfPublication": "Cambridge",
+    "bookCode": "ALG-006",
+    "notes": "Comprehensive algorithms reference; academic standard."
+  },
+  {
+    "title": "JavaScript: The Good Parts",
+    "author": "Douglas Crockford",
+    "publisher": "O'Reilly Media",
+    "yearOfProduction": 2008,
+    "edition": "1st",
+    "placeOfPublication": "Sebastopol",
+    "bookCode": "JS-007",
+    "notes": "Concise insight into the strengths of JavaScript."
+  },
+  {
+    "title": "Patterns of Enterprise Application Architecture",
+    "author": "Martin Fowler",
+    "publisher": "Addison-Wesley",
+    "yearOfProduction": 2002,
+    "edition": "1st",
+    "placeOfPublication": "Boston",
+    "bookCode": "PEA-008",
+    "notes": "Catalogue of enterprise application patterns."
+  },
+  {
+    "title": "Domain-Driven Design: Tackling Complexity in the Heart of Software",
+    "author": "Eric Evans",
+    "publisher": "Addison-Wesley Professional",
+    "yearOfProduction": 2003,
+    "edition": "1st",
+    "placeOfPublication": "Boston",
+    "bookCode": "DDD-009",
+    "notes": "Influential book about modeling complex software domains."
+  },
+  {
+    "title": "Working Effectively with Legacy Code",
+    "author": "Michael Feathers",
+    "publisher": "Prentice Hall",
+    "yearOfProduction": 2004,
+    "edition": "1st",
+    "placeOfPublication": "Upper Saddle River",
+    "bookCode": "LEG-010",
+    "notes": "Practical strategies for dealing with legacy systems."
+  }
+]

@@ -1,12 +1,33 @@
 <template>
-    <v-app-bar flat class="border-b">
-        <v-app-bar-title>{{ title }}</v-app-bar-title>
+    <v-app-bar flat class="border-b" elevation="0">
+        <v-row class="d-flex align-center justify-space-around">
+            <v-col class="ml-4">
+                <v-app-bar-title>{{ title }}</v-app-bar-title>
+                <BreadCrumbs />
+            </v-col>
+
+            <v-col>
+                <div>
+                    <slot name="search-actions"></slot>
+                </div>
+            </v-col>
+
+            <v-col class="d-flex justify-end mr-4">
+                <div>
+                    <slot name="button-actions"></slot>
+                </div>
+            </v-col>
+        </v-row>
+
     </v-app-bar>
 </template>
 
 <script>
+import BreadCrumbs from './BreadCrumbs.vue';
+
 export default {
     name: 'AppBar',
+    components: { BreadCrumbs },
     props: {
         title: {
             type: String,
