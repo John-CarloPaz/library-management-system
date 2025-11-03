@@ -33,7 +33,7 @@
             <div class="pa-3 d-flex justify-center">
                 <v-tooltip v-if="rail">
                     <template #activator="{ props }">
-                        <v-btn v-bind="props" icon variant="tonal" color="error" @click="logout" aria-label="Logout">
+                        <v-btn v-bind="props" icon variant="plain" color="error" @click="logout" aria-label="Logout">
                             <v-icon icon="fa-sign-out-alt"></v-icon>
                         </v-btn>
                     </template>
@@ -67,7 +67,7 @@ export default {
                 { icon: 'fa-id-card', title: 'Borrow Books', to: '/borrow-books' },
                 { icon: 'fa-handshake-simple', title: 'Return Books', to: '/return-books' },
                 { icon: 'fa-receipt', title: 'Records', to: '/records' },
-                { icon: 'fa-user-tie', title: 'Admin Management', to: '/amin-management' },
+                { icon: 'fa-user-tie', title: 'Admin Management', to: '/admin-management' },
                 { icon: 'fa-users', title: 'Student Management', to: '/student-management' },
                 { icon: 'fa-cogs', title: 'Settings', to: '/settings' },
             ],

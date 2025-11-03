@@ -3,6 +3,7 @@ import Dashboard from '@/views/Dashboard.vue'
 import ManageBooks from '@/views/ManageBooks.vue'
 import EditBooks from '@/views/EditBooks.vue'
 import Login from '@/views/Login.vue'
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -42,6 +43,44 @@ const router = createRouter({
       name: 'login',
       component: Login,
     },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/Settings.vue'),
+      meta: { requiresAuth: true, roles: ['Super Admin'] },
+    },
+    {
+      path: '/student-management',
+      name: 'student-management',
+      component: () => import('@/views/StudentManagement.vue'),
+      meta: { requiresAuth: true, roles: ['Super Admin', 'Admin'] },
+    },
+    {
+      path: '/records',
+      name: 'records',
+      component: () => import('@/views/Records.vue'),
+      meta: { requiresAuth: true, roles: ['Super Admin', 'Admin', 'User'] },
+    },
+    {
+      path: '/admin-management',
+      name: 'admin-management',
+      component: () => import('@/views/AdminManagement.vue'),
+      meta: { requiresAuth: true, roles: ['Super Admin'] },
+    },
+    {
+      path: '/return-books',
+      name: 'return-books',
+      component: () => import('@/views/ReturnBooks.vue'),
+      meta: { requiresAuth: true, roles: ['Super Admin', 'Admin', 'User'] },
+    },
+    {
+      path: '/borrow-books',
+      name: 'borrow-books',
+      component: () => import('@/views/BorrowBooks.vue'),
+      meta: { requiresAuth: true, roles: ['Super Admin', 'Admin', 'User'] },
+    }
+
+
     // {
     //   path: '/about',
     //   name: 'about',

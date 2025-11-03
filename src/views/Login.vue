@@ -85,12 +85,15 @@ const signIn = () => {
     }
     localStorage.setItem(SESSION_KEY, JSON.stringify(session))
     console.log('Logged in (fake):', session)
-    try {
-        // Notify other components/tabs that session changed (Navigation listens for this)
-        window.dispatchEvent(new Event('storage'))
-    } catch (e) {
-        // ignore
-    }
-    router.push({ name: 'home' })
+
+    // Navigate to dashboard first, then notify other components/tabs so newly mounted
+    // components (Navigation) reliably receive the session update.
+    router.push({ name: 'home' }).then(() => {
+        try {
+            window.dispatchEvent(new Event('storage'))
+        } catch (e) {
+            // ignore
+        }
+    })
 }
 </script>
