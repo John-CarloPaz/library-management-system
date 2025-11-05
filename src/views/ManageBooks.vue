@@ -10,10 +10,9 @@
 
                         </div>
                     </template>
+
                     <template #button-actions v-if="canCreate">
-                        <div>
-                            <v-btn prepend-icon="fa-plus" variant="tonal" @click="addBook">Add Book</v-btn>
-                        </div>
+                        <v-btn prepend-icon="fa-plus" variant="tonal" @click="addBook">Add Book</v-btn>
                     </template>
                 </AppBar>
 
@@ -21,8 +20,10 @@
                 <Table :headers="bookHeaders" :items="books" :loading="loading" item-key="bookCode">
                     <template #actions="{ item }">
                         <v-btn icon="fa-eye" size="x-small" variant="plain" @click.stop="viewBook(item)"></v-btn>
-                        <v-btn v-if="canEdit" icon="fa-pencil" size="x-small" variant="plain" @click.stop="editBook(item)"></v-btn>
-                        <v-btn v-if="canArchive" icon="fa-box-archive" size="x-small" variant="plain" @click.stop="archiveBook(item)"></v-btn>
+                        <v-btn v-if="canEdit" icon="fa-pencil" size="x-small" variant="plain"
+                            @click.stop="editBook(item)"></v-btn>
+                        <v-btn v-if="canArchive" icon="fa-box-archive" size="x-small" variant="plain"
+                            @click.stop="archiveBook(item)"></v-btn>
                         <v-btn icon="fa-qrcode" size="x-small" variant="plain" @click.stop="printQr(item)"></v-btn>
                     </template>
                 </Table>

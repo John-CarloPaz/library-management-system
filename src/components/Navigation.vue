@@ -1,7 +1,7 @@
 <template>
     <v-navigation-drawer v-if="isLoggedIn" app v-model="drawer" :rail="rail" permanent @click="rail = false" width="300">
         <v-list-item :prepend-avatar="logo" class="ml-1 mb-2"nav>
-            <p class="text-h6 text-blue-darken-4 font-weight-black">SPCF LMS</p>
+            <p class="text-h6 text-blue-darken-4 font-weight-black">SPCF Library</p>
             <template v-slot:append>
                 <v-btn icon variant="text" @click.stop="rail = !rail">
                     <v-avatar rounded="circle" icon="fa-chevron-left" class="fa-xs"></v-avatar>

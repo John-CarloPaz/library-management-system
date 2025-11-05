@@ -9,6 +9,7 @@ export const ACTIONS = Object.freeze({
   EDIT: 'edit',
   VIEW: 'view',
   DELETE: 'delete',
+  NOTIF: 'notif',
 });
 
 // Policy map: action -> allowed roles
@@ -20,6 +21,7 @@ const POLICY = {
   [ACTIONS.EDIT]: ['Super Admin', 'Admin'],
   [ACTIONS.VIEW]: ['Super Admin', 'Admin', 'User'],
   [ACTIONS.DELETE]: ['Super Admin'],
+  [ACTIONS.NOTIF]: ['Super Admin'],
 };
 
 const SESSION_KEY = 'app_session';

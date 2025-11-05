@@ -8,7 +8,7 @@
                     </template>
                 </AppBar>
 
-                <v-card class="mt-4">
+                <v-card class="mt-4 mb-14">
                     <v-simple-table>
                         <tbody>
                             <tr v-for="(field, idx) in fields" :key="field.key || idx">
@@ -18,6 +18,13 @@
                         </tbody>
                     </v-simple-table>
                 </v-card>
+                <p class="font-weight-bold mb-2">Borrower Details</p>
+                <Table :headers="borrowerHeaders" :items="borrowers" :loading="loading" item-key="id">
+                    <template #actions="{ item }">
+                        <v-chip variant="elevated" color="warning" v-if="item.status == 'active'"><p class="text-capitalize">{{ item.status }}</p></v-chip>
+                        <v-chip ariant="elevated" color="success" v-if="item.status == 'returned'"><p class="text-capitalize">{{ item.status }}</p></v-chip>
+                    </template>
+                </Table>
             </v-col>
         </v-row>
     </v-container>
@@ -25,11 +32,13 @@
 
 <script>
 import AppBar from '@/components/AppBar.vue';
+import Table from '@/components/Table.vue';
 import booksData from '@/data/books.test.json';
+import borrowerData from '@/data/borrower.test.json';
 
 export default {
     name: 'ViewBookDetails',
-    components: { AppBar },
+    components: { AppBar, Table },
     props: {
         bookCode: {
             type: String,
@@ -48,6 +57,16 @@ export default {
                 bookCode: '',
                 notes: '',
             },
+
+            loading: false,
+
+            borrowers: borrowerData.slice(),
+            borrowerHeaders: [
+                { text: 'ID', value: 'studentId' },
+                { text: 'Name', value: 'name' },
+                { text: 'Email', value: 'email' },
+                { text: 'Actions', value: 'actions', sortable: false },
+            ],
         };
     },
     created() {
@@ -92,7 +111,8 @@ th {
 }
 
 /* add subtle separators between rows */
-tbody td, th {
+tbody td,
+th {
     padding: 12px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }

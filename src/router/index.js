@@ -39,7 +39,7 @@ const router = createRouter({
       meta: { requiresAuth: true, roles: ['Super Admin', 'Admin', 'User'] },
     },
     {
-      path: '/login',
+      path: '/',
       name: 'login',
       component: Login,
     },

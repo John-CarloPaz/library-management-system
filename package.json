@@ -16,6 +16,7 @@
     "@fortawesome/vue-fontawesome": "^3.0.8",
     "qrcode": "^1.5.4",
     "vue": "^3.5.13",
+    "vue-qrcode-reader": "^5.7.3",
     "vue-router": "^4.5.0",
     "vuetify": "^3.8.2"
   },

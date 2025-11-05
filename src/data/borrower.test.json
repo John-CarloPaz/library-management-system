@@ -1,0 +1,17 @@
+[
+    {
+        "id": 1,
+        "name": "John Doe",
+        "studentId": 123456,
+        "email": "johndoe@spcf.edu.ph",
+        "status": "returned"
+    },
+    {
+        "id": 1,
+        "name": "Jane Doe",
+        "studentId": 123456,
+        "email": "janedoe@spcf.edu.ph",
+        "status": "active"
+    }
+    
+]

@@ -1,0 +1,102 @@
+[
+  {
+    "studentId": 2023001,
+    "studentName": "John Doe",
+    "bookCode": "BK-1001",
+    "bookTitle": "Introduction to Programming",
+    "dueDate": "2025-11-10",
+    "dateReturned": "2025-11-05",
+    "dateBorrowed": "2025-10-25",
+    "status": "Returned"
+  },
+  {
+    "studentId": 2023002,
+    "studentName": "Jane Smith",
+    "bookCode": "BK-1002",
+    "bookTitle": "Database Systems",
+    "dueDate": "2025-11-12",
+    "dateReturned": null,
+    "dateBorrowed": "2025-10-30",
+    "status": "Borrowed"
+  },
+  {
+    "studentId": 2023003,
+    "studentName": "Michael Reyes",
+    "bookCode": "BK-1003",
+    "bookTitle": "Web Development Essentials",
+    "dueDate": "2025-11-08",
+    "dateReturned": "2025-11-06",
+    "dateBorrowed": "2025-10-26",
+    "status": "Returned"
+  },
+  {
+    "studentId": 2023004,
+    "studentName": "Sarah Lim",
+    "bookCode": "BK-1004",
+    "bookTitle": "Data Structures and Algorithms",
+    "dueDate": "2025-11-15",
+    "dateReturned": null,
+    "dateBorrowed": "2025-10-29",
+    "status": "Overdue"
+  },
+  {
+    "studentId": 2023005,
+    "studentName": "Carlos Mendoza",
+    "bookCode": "BK-1005",
+    "bookTitle": "Operating Systems",
+    "dueDate": "2025-11-20",
+    "dateReturned": null,
+    "dateBorrowed": "2025-11-01",
+    "status": "Borrowed"
+  },
+  {
+    "studentId": 2023006,
+    "studentName": "Emily Santos",
+    "bookCode": "BK-1006",
+    "bookTitle": "Artificial Intelligence Basics",
+    "dueDate": "2025-11-18",
+    "dateReturned": null,
+    "dateBorrowed": "2025-10-31",
+    "status": "Borrowed"
+  },
+  {
+    "studentId": 2023007,
+    "studentName": "Joshua Tan",
+    "bookCode": "BK-1007",
+    "bookTitle": "Mobile App Development",
+    "dueDate": "2025-11-22",
+    "dateReturned": null,
+    "dateBorrowed": "2025-11-03",
+    "status": "Borrowed"
+  },
+  {
+    "studentId": 2023008,
+    "studentName": "Hannah Cruz",
+    "bookCode": "BK-1008",
+    "bookTitle": "Computer Networks",
+    "dueDate": "2025-11-14",
+    "dateReturned": "2025-11-04",
+    "dateBorrowed": "2025-10-28",
+    "status": "Returned"
+  },
+  {
+    "studentId": 2023009,
+    "studentName": "Patrick Dela Rosa",
+    "bookCode": "BK-1009",
+    "bookTitle": "Software Engineering",
+    "dueDate": "2025-11-11",
+    "dateReturned": null,
+    "dateBorrowed": "2025-10-27",
+    "status": "Overdue"
+  },
+  {
+    "studentId": 2023010,
+    "studentName": "Isabella Ramos",
+    "bookCode": "BK-1010",
+    "bookTitle": "Cybersecurity Fundamentals",
+    "dueDate": "2025-11-25",
+    "dateReturned": null,
+    "dateBorrowed": "2025-11-05",
+    "status": "Borrowed"
+  }
+]

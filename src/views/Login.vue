@@ -2,7 +2,7 @@
     <v-row class="fill-height ma-0">
         <v-col cols="12" lg="4" class="w-100 d-flex flex-column align-center justify-center px-16">
             <v-container fluid class="d-flex justify-start w-100 mb-10">
-                <p class="text-h5 font-weight-bold px-0 mb-2 text-blue-darken-4">SPCF LMS</p>
+                <p class="text-h2 font-weight-medium px-0 mb-2 text-blue-darken-4">SPCF Library</p>
             </v-container>
 
             <v-container fluid class="d-flex flex-column justify-start w-100 mb-2 mt-16">
