@@ -8,7 +8,7 @@
                 <v-card elevation="2" class="pa-4">
                     <v-row class="mb-4" align="center">
                         <v-col>
-                            <h3 class="mb-0">Borrow a Book</h3>
+                            <h3 class="mb-0">Return a Book</h3>
                             <div class="text-subtitle-2 text-grey">Search or scan a book to begin.</div>
                         </v-col>
                         <v-col cols="auto">
