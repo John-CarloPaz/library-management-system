@@ -18,6 +18,10 @@
 
                 <!-- Reusable table component -->
                 <Table :headers="bookHeaders" :items="books" :loading="loading" item-key="bookCode">
+                    <template #cell-expiration="{ item }">
+                        <span v-if="isExpired(item.expiration)" style="color:#d32f2f;font-weight:600">expired</span>
+                        <span v-else>{{ formatDate(item.expiration) }}</span>
+                    </template>
                     <template #actions="{ item }">
                         <v-btn icon="fa-eye" size="x-small" variant="plain" @click.stop="viewBook(item)"></v-btn>
                         <v-btn v-if="canEdit" icon="fa-pencil" size="x-small" variant="plain"
@@ -61,6 +65,8 @@ export default {
                 { text: 'Author', value: 'author' },
                 { text: 'Year', value: 'yearOfProduction' },
                 { text: 'Edition', value: 'edition' },
+                { text: 'Price', value: 'price' },
+                { text: 'Expiration', value: 'expiration' },
                 { text: 'Actions', value: 'actions', sortable: false },
             ],
             canArchive: canCheck(ACTIONS.ARCHIVE),
@@ -80,6 +86,23 @@ export default {
             this.canArchive = canCheck(ACTIONS.ARCHIVE)
             this.canEdit = canCheck(ACTIONS.EDIT)
             this.canCreate = canCheck(ACTIONS.CREATE)
+        },
+        isExpired(expiration) {
+            if (!expiration) return false;
+            const d = new Date(expiration);
+            if (isNaN(d.getTime())) return false;
+            // expired if expiration date is strictly before now
+            return d.getTime() < Date.now();
+        },
+        formatDate(val) {
+            if (!val) return '';
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return String(val);
+            try {
+                return d.toLocaleDateString();
+            } catch (e) {
+                return d.toISOString().slice(0, 10);
+            }
         },
         viewBook(item) {
             // navigate to view details for this book

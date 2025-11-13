@@ -10,43 +10,55 @@
 
         <v-form ref="form" lazy-validation>
           <v-row>
-            <v-col cols="12" md="8">
-              <v-text-field v-model="book.title" label="Title" required />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field v-model="book.author" label="Author" />
-            </v-col>
-
+            <!-- Row 1: Title & Author -->
             <v-col cols="12" md="6">
-              <v-text-field v-model="book.publisher" label="Publisher" />
+              <v-text-field v-model="book.title" label="Title" required variant="solo" />
             </v-col>
-            <v-col cols="6" md="2">
-              <v-text-field v-model="book.yearOfProduction" label="Year" type="number" />
-            </v-col>
-            <v-col cols="6" md="2">
-              <v-text-field v-model="book.edition" label="Edition" />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field v-model="book.placeOfPublication" label="Place of Publication" />
+            <v-col cols="12" md="6">
+              <v-text-field v-model="book.author" label="Author" variant="solo" />
             </v-col>
 
-            <v-col cols="12" md="4">
-              <v-text-field v-model="book.bookCode" label="Book Code" placeholder="e.g. BK-001" />
+            <!-- Row 2: Publisher & Place of Publication -->
+            <v-col cols="12" md="6">
+              <v-text-field v-model="book.publisher" label="Publisher" variant="solo" />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field v-model="book.placeOfPublication" label="Place of Publication" variant="solo" />
             </v-col>
 
+            <!-- Row 3: Year, Edition, Book Code, Price, Expiration -->
+            <v-col cols="12" md="2">
+              <v-text-field v-model="book.yearOfProduction" label="Year" type="number" variant="solo" />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-text-field v-model="book.edition" label="Edition" variant="solo" />
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-text-field v-model="book.bookCode" label="Book Code" placeholder="e.g. BK-001" variant="solo" />
+            </v-col>
+            <v-col cols="12" md="2">
+              <v-text-field v-model="book.price" label="Price" type="number" step="0.01" variant="solo" />
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-text-field v-model="book.expiration" label="Expiration (auto)" readonly variant="solo" />
+            </v-col>
+
+            <!-- Notes -->
             <v-col cols="12">
-              <v-textarea v-model="book.notes" label="Notes" rows="4" />
+              <v-textarea v-model="book.notes" label="Notes" rows="4" variant="solo" />
             </v-col>
 
+            <!-- QR preview -->
             <v-col cols="12" md="4">
               <div v-if="qrDataUrl">
                 <img :src="qrDataUrl" alt="QR code" style="max-width:300px;" />
               </div>
             </v-col>
 
-            <v-col cols="12" class="d-flex" style="gap:12px;">
-              <v-btn color="primary" @click="generateAndShow">Generate QR</v-btn>
-              <v-btn color="primary" @click="save">Save & Upload</v-btn>
+            <!-- Buttons aligned to the right -->
+            <v-col cols="12" class="d-flex justify-end">
+              <v-btn color="primary" class="mr-3" @click="generateAndShow">Generate QR</v-btn>
+              <v-btn color="primary" class="mr-3" @click="save">Save & Upload</v-btn>
               <v-btn text @click="cancel">Cancel</v-btn>
             </v-col>
           </v-row>
@@ -74,9 +86,17 @@ export default {
         placeOfPublication: '',
         bookCode: '',
         notes: '',
+        price: null,
+        expiration: null,
       },
       qrDataUrl: '',
     };
+  },
+  mounted() {
+    // Auto-generate expiration date 5 years from today
+    const exp = new Date();
+    exp.setFullYear(exp.getFullYear() + 5);
+    this.book.expiration = exp.toISOString().split('T')[0];
   },
   methods: {
     async generateQr() {
@@ -136,6 +156,12 @@ export default {
       }
       if (!this.qrDataUrl) {
         await this.generateQr();
+      }
+      // Ensure expiration is set (5 years from now) in case it was cleared
+      if (!this.book.expiration) {
+        const exp = new Date();
+        exp.setFullYear(exp.getFullYear() + 5);
+        this.book.expiration = exp.toISOString().split('T')[0];
       }
       const filename = `${this.book.bookCode}.png`;
       const uploadResult = await this.uploadQrImage(filename);

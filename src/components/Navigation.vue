@@ -21,7 +21,7 @@
         <v-divider></v-divider>
 
         <v-list density="compact" nav>
-            <v-list-item v-for="(navigation, index) in visibleNavigations" :key="index" :prepend-icon="navigation.icon" :value="navigation.title" :to="navigation.to">
+            <v-list-item v-for="(navigation, index) in visibleNavigations" :key="index" :prepend-icon="navigation.icon" :value="navigation.title" :to="navigation.to" :class="{ 'nav-active': isActive(navigation) }">
                 <template v-slot:title>
                     <p class="text-subtitle-1 text-grey-darken-2 font-weight-bold mb-0">{{ navigation.title }}</p>
                 </template>
@@ -109,6 +109,21 @@ export default {
             return []
         },
     },
+    methods: {
+        isActive(navigation) {
+            try {
+                const to = navigation && navigation.to;
+                const currentPath = this.$route && this.$route.path;
+                // if `to` is a string path, compare directly
+                if (typeof to === 'string') return currentPath === to;
+                // if `to` is a route object with name, compare by name
+                if (to && to.name) return this.$route && this.$route.name === to.name;
+                return false;
+            } catch (e) {
+                return false;
+            }
+        },
+    },
 }
 </script>
 
@@ -127,4 +142,14 @@ export default {
 .nav-footer .v-btn {
     border-radius: 0;
 }
+
+/* Active navigation styling */
+.nav-active {
+    background-color: #e3f2fd;
+}
+.nav-active .text-subtitle-1,
+.nav-active .v-list-item__title,
+.nav-active .v-icon {
+    color: #0960e2 !important;
+}   
 </style>
