@@ -63,13 +63,15 @@ export default {
             logo,
             navigations: [
                 { icon: 'fa-book', title: 'Dashboard', to: '/home' },
+                { icon: 'fa-cogs', title: 'Branch Management', to: '/branch-management' },
+                { icon: 'fa-user-tie', title: 'Admin Management', to: '/admin-management' },
+                { icon: 'fa-users', title: 'Student Management', to: '/student-management' },
+                {icon: 'fa-list-check', title: 'Procurement', to: '/' },
+                {icon: 'fa-hand-holding-hand', title: 'Acquisition', to: '/' },
                 { icon: 'fa-book-open', title: 'Manage Books', to: '/manage-books' },
                 { icon: 'fa-id-card', title: 'Borrow Books', to: '/borrow-books' },
                 { icon: 'fa-handshake-simple', title: 'Return Books', to: '/return-books' },
                 { icon: 'fa-receipt', title: 'Records', to: '/records' },
-                { icon: 'fa-user-tie', title: 'Admin Management', to: '/admin-management' },
-                { icon: 'fa-users', title: 'Student Management', to: '/student-management' },
-                { icon: 'fa-cogs', title: 'Branch Management', to: '/branch-management' },
             ],
         }
     },
