@@ -65,7 +65,7 @@
                     <v-row class="mb-4" align="center">
                         <v-col>
                             <h3 class="mb-0">Student</h3>
-                            <div class="text-subtitle-2 text-grey">Search or scan a student to assign borrower.</div>
+                            <div class="text-subtitle-2 text-grey">Search or scan a student to return a book.</div>
                         </v-col>
                         <v-col cols="auto">
                             <v-btn color="primary" variant="tonal" @click="openScanner('student')">

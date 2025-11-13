@@ -59,7 +59,6 @@
 <script>
 import QRCode from 'qrcode';
 import AppBar from '@/components/AppBar.vue';
-import booksData from '@/data/books.test.json';
 
 export default {
   name: 'CreateBooks',

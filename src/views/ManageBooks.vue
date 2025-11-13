@@ -27,6 +27,14 @@
                         <v-btn icon="fa-qrcode" size="x-small" variant="plain" @click.stop="printQr(item)"></v-btn>
                     </template>
                 </Table>
+                <div class="mt-4">
+                    <span class="mr-1">Download:</span>
+                    <a href="#" @click.prevent="onDownloadCsv">CSV</a>
+                    <span class="mr-1">,</span>
+                    <a href="#" @click.prevent="onDownloadJson">JSON</a>
+                    <span class="mr-1">,</span>
+                    <a href="#" @click.prevent="onDownloadXml">XML</a>
+                </div>
             </v-col>
         </v-row>
     </v-container>
@@ -36,6 +44,7 @@
 import Table from '../components/Table.vue';
 import AppBar from '../components/AppBar.vue';
 import booksData from '../data/books.test.json';
+import { exportAsCsv, exportAsJson, exportAsXml } from '@/services/export'
 import { ACTIONS, can as canCheck, requirePermission } from '@/services/permission';
 
 export default {
@@ -45,7 +54,6 @@ export default {
         return {
             loading: false,
             search: '',
-            // use a shallow copy so tests won't mutate the source file
             books: booksData.slice(),
             bookHeaders: [
                 { text: 'ID', value: 'bookCode' },
@@ -115,6 +123,17 @@ export default {
             }
             // perform archive (for demo we remove it from the list)
             this.books = this.books.filter(b => b.bookCode !== item.bookCode);
+        },
+        // Download handlers using export service
+        onDownloadCsv() {
+            // export visible/filtered books using header definitions
+            exportAsCsv(this.books, this.bookHeaders, 'books.csv');
+        },
+        onDownloadJson() {
+            exportAsJson(this.books, 'books.json');
+        },
+        onDownloadXml() {
+            exportAsXml(this.books, this.bookHeaders, 'books.xml', { rootName: 'books', itemName: 'book' });
         },
         onSearch() {
             const q = this.search && this.search.toLowerCase();

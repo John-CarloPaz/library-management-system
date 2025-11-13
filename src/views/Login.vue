@@ -38,7 +38,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import loginImage from '../assets/login-photo.png'
 import logo from '../assets/spcf-logo.png'
-import credentials from '../data/credentials.test.json'
+import admins from '../data/admins.json'
 
 const email = ref('')
 const password = ref('')
@@ -65,7 +65,7 @@ onMounted(() => {
 
 const signIn = () => {
     errMsg.value = ''
-    const user = credentials.find(u => u.email.toLowerCase() === (email.value || '').toLowerCase())
+    const user = admins.find(u => u.email.toLowerCase() === (email.value || '').toLowerCase())
     if (!user) {
         errMsg.value = 'No account with that email was found'
         return
@@ -79,7 +79,7 @@ const signIn = () => {
     const session = {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.username,
         role: user.role,
         createdAt: new Date().toISOString(),
     }

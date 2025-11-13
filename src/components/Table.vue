@@ -16,6 +16,16 @@
             <slot name="actions" :item="item"></slot>
         </template>
 
+        <!-- Generic per-column cell slot bridge.
+             Parent components can provide a slot named "cell-<columnValue>" to override
+             how a specific column is rendered for each row. If no slot is provided,
+             we fall back to displaying the raw value (item[columnValue]). -->
+        <template v-for="header in tableHeaders.filter(h => h.value !== 'actions')" v-slot:[`item.${header.value}`]="{ item }">
+            <slot :name="`cell-${header.value}`" :item="item">
+                {{ item[header.value] }}
+            </slot>
+        </template>
+
         <template #no-data>
             <slot name="no-data">
                 <v-alert type="info" text>

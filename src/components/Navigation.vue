@@ -69,7 +69,7 @@ export default {
                 { icon: 'fa-receipt', title: 'Records', to: '/records' },
                 { icon: 'fa-user-tie', title: 'Admin Management', to: '/admin-management' },
                 { icon: 'fa-users', title: 'Student Management', to: '/student-management' },
-                { icon: 'fa-cogs', title: 'Settings', to: '/settings' },
+                { icon: 'fa-cogs', title: 'Branch Management', to: '/branch-management' },
             ],
         }
     },
@@ -100,8 +100,8 @@ export default {
             const r = this.role
             const allowedBasic = ['Dashboard', 'Manage Books', 'Borrow Books', 'Return Books']
             if (!r) return []
-            if (r === 'Super Admin') return this.navigations
-            if (r === 'Admin' || r === 'User') {
+            if (r === 'super_admin') return this.navigations
+            if (r === 'branch_admin' || r === 'admin') {
                 return this.navigations.filter(n => allowedBasic.includes(n.title))
             }
             return []

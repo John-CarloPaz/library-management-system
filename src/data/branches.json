@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "name": "Central Library",
+        "address": "123 Main St, Cityville",
+        "details": "Main branch with reading rooms and digital archives",
+        "manager": "John Smith",
+        "public_ip": "203.0.113.10"
+    },
+    {
+        "id": 2,
+        "name": "East Branch",
+        "address": "456 East St, Cityville",
+        "details": "Branch with multimedia section and study areas",
+        "manager": "Alice Smith",
+        "public_ip": "203.0.113.11"
+    },
+    {
+        "id": 3,
+        "name": "West Branch",
+        "address": "789 West Ave, Cityville",
+        "details": "Branch with children's library and community events",
+        "manager": "Bob Johnson",
+        "public_ip": "203.0.113.12"
+    }
+]

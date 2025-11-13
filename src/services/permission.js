@@ -15,13 +15,13 @@ export const ACTIONS = Object.freeze({
 // Policy map: action -> allowed roles
 // Change these values to match your business rules. Roles are strings as stored in session.role
 const POLICY = {
-  [ACTIONS.ARCHIVE]: ['Super Admin'],
-  [ACTIONS.PRINT_QR]: ['Super Admin', 'Admin'],
-  [ACTIONS.CREATE]: ['Super Admin', 'Admin'],
-  [ACTIONS.EDIT]: ['Super Admin', 'Admin'],
-  [ACTIONS.VIEW]: ['Super Admin', 'Admin', 'User'],
-  [ACTIONS.DELETE]: ['Super Admin'],
-  [ACTIONS.NOTIF]: ['Super Admin'],
+  [ACTIONS.ARCHIVE]: ['super_admin'],
+  [ACTIONS.PRINT_QR]: ['super_admin', 'branch_admin'],
+  [ACTIONS.CREATE]: ['super_admin', 'branch_admin'],
+  [ACTIONS.EDIT]: ['super_admin', 'branch_admin'],
+  [ACTIONS.VIEW]: ['super_admin', 'branch_admin', 'admin'],
+  [ACTIONS.DELETE]: ['super_admin'],
+  [ACTIONS.NOTIF]: ['super_admin'],
 };
 
 const SESSION_KEY = 'app_session';
@@ -38,7 +38,7 @@ export function getSession() {
 export function hasRole(role, allowedRoles = []) {
   if (!role) return false;
   // Super Admin bypass
-  if (role === 'Super Admin') return true;
+  if (role === 'super_admin') return true;
   return allowedRoles.includes(role);
 }
 
