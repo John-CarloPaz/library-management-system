@@ -10,12 +10,42 @@
                 <p class="text-subtitle mt-3 text-grey-darken-1">Enter your email and password to login</p>
             </v-container>
 
-            <v-container class="mt-2">
-                <v-text-field v-model="email" label="Email" variant="outlined"></v-text-field>
-                <v-text-field v-model="password" label="Password" type="password" variant="outlined"></v-text-field>
+            <v-container class="mt-2" @keyup.enter="onEnter">
+                <v-text-field
+                    v-model="email"
+                    label="Email"
+                    variant="outlined"
+                    :disabled="isLoading"
+                    type="email"
+                    autocomplete="email"
+                ></v-text-field>
+
+                <v-text-field
+                    ref="passwordField"
+                    v-model="password"
+                    :type="showPassword ? 'text' : 'password'"
+                    label="Password"
+                    variant="outlined"
+                    :disabled="isLoading"
+                    autocomplete="current-password"
+                    :append-inner-icon="showPassword ? 'fa-eye-slash' : 'fa-eye'"
+                    @click:append-inner.stop="togglePassword"
+                ></v-text-field>
+
                 <p v-show="errMsg" class="text-red">{{ errMsg }}</p>
-                <v-btn block @click="signIn" color="primary" class="ml-auto px-0" variant="flat"
-                    size="large">Login</v-btn>
+
+                <v-btn
+                    block
+                    @click="signIn"
+                    color="primary"
+                    class="ml-auto px-0"
+                    variant="flat"
+                    size="large"
+                    :loading="isLoading"
+                    :disabled="isLoading"
+                >
+                    Login
+                </v-btn>
             </v-container>
         </v-col>
         <v-col cols="12" lg="8" class="h-100 w-100 pa-0">
@@ -34,66 +64,70 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import loginImage from '../assets/login-photo.png'
 import logo from '../assets/spcf-logo.png'
-import admins from '../data/admins.json'
+import { login as authLogin, isAuthenticated } from '../services/auth'
 
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
+const passwordField = ref(null)
 const router = useRouter()
 const errMsg = ref('')
-
-const SESSION_KEY = 'app_session'
+const isLoading = ref(false)
 
 onMounted(() => {
-    // If a session exists in localStorage, redirect to the app
-    try {
-        const s = localStorage.getItem(SESSION_KEY)
-        if (s) {
-            const session = JSON.parse(s)
-            if (session && session.email) {
-                console.log('Restored session for', session.email)
-                router.push({ name: 'home' })
-            }
-        }
-    } catch (e) {
-        // ignore
+    // If already authenticated, redirect to the app
+    if (isAuthenticated()) {
+        console.log('Restored authenticated session')
+        router.push({ name: 'home' })
     }
 })
 
-const signIn = () => {
+const signIn = async () => {
     errMsg.value = ''
-    const user = admins.find(u => u.email.toLowerCase() === (email.value || '').toLowerCase())
-    if (!user) {
-        errMsg.value = 'No account with that email was found'
-        return
-    }
-    if (user.password !== password.value) {
-        errMsg.value = 'Incorrect password'
-        return
-    }
+    isLoading.value = true
 
-    // create a simple session object (do NOT use this in production)
-    const session = {
-        id: user.id,
-        email: user.email,
-        name: user.username,
-        role: user.role,
-        createdAt: new Date().toISOString(),
-    }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    console.log('Logged in (fake):', session)
+    try {
+        // Call the auth service (supports both real API and fallback to local data)
+        const result = await authLogin(email.value, password.value)
+        console.log('Logged in successfully:', result.session)
 
-    // Navigate to dashboard first, then notify other components/tabs so newly mounted
-    // components (Navigation) reliably receive the session update.
-    router.push({ name: 'home' }).then(() => {
-        try {
-            window.dispatchEvent(new Event('storage'))
-        } catch (e) {
-            // ignore
-        }
-    })
+        // Navigate to dashboard
+        await router.push({ name: 'home' })
+    } catch (error) {
+        console.error('Login error:', error)
+        errMsg.value = error.message || 'Login failed. Please try again.'
+    } finally {
+        isLoading.value = false
+    }
+}
+
+const onEnter = () => {
+    if (!isLoading.value) {
+        signIn()
+    }
+}
+
+const togglePassword = async () => {
+    // Remember the current input element and value length
+    const fieldComponent = passwordField.value
+    const currentInput = fieldComponent?.$el?.querySelector('input')
+    const currentLength = currentInput?.value?.length ?? 0
+
+    // Toggle visibility
+    showPassword.value = !showPassword.value
+
+    // After DOM updates, restore caret at the end of the input
+    await nextTick()
+    const newFieldComponent = passwordField.value
+    const inputEl = newFieldComponent?.$el?.querySelector('input')
+    if (inputEl) {
+        const len = inputEl.value.length ?? currentLength
+        inputEl.focus()
+        inputEl.setSelectionRange(len, len)
+    }
 }
 </script>

@@ -21,14 +21,22 @@
 
                     <v-row>
                         <v-col cols="12">
-                            <v-autocomplete v-model="selectedBook" :items="books" item-title="title"
-                                item-value="bookCode" label="Select book (search or pick)" clearable return-object
-                                density="comfortable">
-                                <template #item="{ item }">
-                                    <div>
-                                        <div class="font-weight-bold">{{ item.title }}</div>
-                                        <small class="text-grey">{{ item.author }} — {{ item.bookCode }}</small>
-                                    </div>
+                            <v-autocomplete
+                                v-model="selectedBook"
+                                :items="books"
+                                item-title="title"
+                                item-value="bookCode"
+                                label="Select book (search or pick)"
+                                clearable
+                                return-object
+                                density="comfortable"
+                            >
+                                <template #item="{ props, item }">
+                                    <v-list-item
+                                        v-bind="props"
+                                        :title="item.raw.title"
+                                        :subtitle="item.raw.author"
+                                    />
                                 </template>
                             </v-autocomplete>
                         </v-col>
@@ -59,12 +67,12 @@
                 </v-card>
             </v-col>
 
-            <!-- Right: Student field and Scanner -->
+            <!-- Right: Student field and Duration -->
             <v-col cols="12" md="6">
                 <v-card elevation="2" class="pa-4">
                     <v-row class="mb-4" align="center">
                         <v-col>
-                            <h3 class="mb-0">Student</h3>
+                            <h3 class="mb-0">Student & Duration</h3>
                             <div class="text-subtitle-2 text-grey">Search or scan a student to assign borrower.</div>
                         </v-col>
                         <v-col cols="auto">
@@ -78,14 +86,25 @@
 
                     <v-row>
                         <v-col cols="12">
-                            <v-autocomplete v-model="selectedStudent" :items="students" item-title="name"
-                                item-value="email" label="Select student (search or pick)" clearable return-object
-                                density="comfortable">
-                                <template #item="{ item }">
-                                    <div>
-                                        <div class="font-weight-bold">{{ item.name }}</div>
-                                        <small class="text-grey">{{ item.email }}</small>
-                                    </div>
+                            <v-autocomplete
+                                v-model="selectedStudent"
+                                :items="students"
+                                item-title="name"
+                                item-value="email"
+                                label="Select student (search or pick)"
+                                clearable
+                                return-object
+                                density="comfortable"
+                            >
+                                <template #item="{ props, item }">
+                                    <v-list-item v-bind="props">
+                                        <v-list-item-title class="font-weight-bold">
+                                            {{ item.raw.name }}
+                                        </v-list-item-title>
+                                        <v-list-item-subtitle class="text-grey">
+                                            {{ item.raw.email }}
+                                        </v-list-item-subtitle>
+                                    </v-list-item>
                                 </template>
                             </v-autocomplete>
                         </v-col>
@@ -107,6 +126,11 @@
                                 </div>
                                 <div v-else class="text-grey">No student selected.</div>
                             </v-card>
+                        </v-col>
+
+                        <v-col cols="12" class="mt-4">
+                            <v-select v-model="borrowDuration" :items="durationOptions" label="Borrow Duration"
+                                density="comfortable" />
                         </v-col>
                     </v-row>
                 </v-card>
@@ -168,7 +192,7 @@
         <!-- Actions and Recent Borrows (full width) -->
         <v-row class="mt-4">
             <v-col cols="12" class="d-flex justify-end mb-4">
-                <v-btn color="primary" :disabled="!canBorrow" @click="confirmBorrow" size="large">
+                <v-btn color="primary" :disabled="!canBorrow" @click="confirmBorrow" size="large" :loading="isBorrowing">
                     <v-icon left icon="fa-book"></v-icon>
                     Confirm Borrow
                 </v-btn>
@@ -181,7 +205,7 @@
                         <v-list-item v-for="(b, idx) in recentBorrows" :key="idx">
                             <v-list-item-content>
                                 <v-list-item-title>{{ b.book.title }}</v-list-item-title>
-                                <v-list-item-subtitle>{{ b.student.name }} — {{ b.date }}</v-list-item-subtitle>
+                                <v-list-item-subtitle>{{ b.student.name }} — {{ b.date }} ({{ b.duration }} days)</v-list-item-subtitle>
                             </v-list-item-content>
                         </v-list-item>
                     </v-list>
@@ -189,36 +213,96 @@
             </v-col>
         </v-row>
     </v-container>
+
+    <!-- Error Dialog -->
+    <ErrorDialog 
+        :visible.sync="dialog.visible" 
+        :title="dialog.title" 
+        :message="dialog.message" 
+        :isError="dialog.isError"
+        @update:visible="dialog.visible = $event"
+    />
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
 import AppBar from '../components/AppBar.vue'
-import booksData from '@/data/books.test.json'
-import borrowers from '@/data/borrower.test.json'
+import ErrorDialog from '../components/ErrorDialog.vue'
+import { borrowBook } from '../services/borrow.js'
+import { listBooks } from '@/services/book'
+import { listActiveStudents, getStudentByNumber } from '@/services/student'
 
 const router = useRouter()
 
-// Use in-memory test data for now. Wrap in refs so we can swap to API calls later.
-const books = ref(booksData || [])
-// Use borrower.test.json for student list during testing
-const students = ref(borrowers || [])
+// Book and student lists (loaded from backend)
+const books = ref([])
+const students = ref([])
 
-// Placeholder functions to load from remote API later. Replace the inner logic to fetch from your backend.
+// Dialog state for error handling
+const dialog = ref({
+    visible: false,
+    title: '',
+    message: '',
+    isError: false
+})
+
+// Loading state for borrow button
+const isBorrowing = ref(false)
+
+// Duration options for borrowing (must match backend: 3, 7, 14, 30)
+const borrowDuration = ref(14)
+const durationOptions = ref([
+    { title: '3 days', value: 3 },
+    { title: '7 days', value: 7 },
+    { title: '14 days', value: 14 },
+    { title: '30 days', value: 30 }
+])
+
+// Load available books from backend (using Book service)
 async function loadBooksFromApi() {
-    // Example:
-    // const res = await fetch('/api/books');
-    // books.value = await res.json();
-    return books.value
+    try {
+        const apiBooks = await listBooks()
+        books.value = (Array.isArray(apiBooks) ? apiBooks : []).map(b => ({
+            // keep original ID
+            id: b.id,
+            // catalogue-level fields (already flattened by service)
+            title: b.title,
+            author: b.author,
+            publisher: b.publisher,
+            yearOfProduction: b.year_of_publication,
+            edition: b.edition,
+            placeOfPublication: b.place_of_publication,
+            // use reference_number as the logical "book code" used in QR
+            bookCode: b.reference_number,
+            notes: b.catalogue?.notes || '',
+        }))
+        console.log('BorrowBooks loaded books from API:', books.value.length)
+    } catch (error) {
+        console.error('Failed to load books for borrowing:', error)
+        showDialog('Load Error', error.message || 'Failed to load books for borrowing.', true)
+    }
 }
 
+// Load students from dedicated Students backend (unarchived/active)
 async function loadStudentsFromApi() {
-    // Example:
-    // const res = await fetch('/api/students');
-    // students.value = await res.json();
-    return students.value
+    try {
+        const apiStudents = await listActiveStudents()
+        students.value = (Array.isArray(apiStudents) ? apiStudents : []).map(s => ({
+            id: s.id,
+            name: [s.first_name, s.middle_name, s.last_name, s.suffix].filter(Boolean).join(' '),
+            email: s.email,
+            // Use the public student identifier from backend
+            studentId: s.student_id,
+            student_id: s.student_id,
+            status: s.status,
+        }))
+        console.log('BorrowBooks loaded students from Students API:', students.value.length)
+    } catch (error) {
+        console.error('Failed to load students for borrowing:', error)
+        // Keep list empty on failure; QR with embedded student data can still work.
+    }
 }
 
 const selectedBook = ref(null)
@@ -368,7 +452,7 @@ function onDecode(content) {
             if (fb) break
         }
 
-        // fallback: check if the scanned text contains any known bookCode
+        // fallback: check if the scanned text contains any known bookCode / reference_number substring
         if (!fb && text) {
             fb = books.value.find(b => text.includes(String(b.bookCode)))
         }
@@ -391,6 +475,8 @@ function onDecode(content) {
         if (parsed) {
             if (parsed.email) candidates.push(String(parsed.email))
             if (parsed.studentId) candidates.push(String(parsed.studentId))
+            if (parsed.student_id) candidates.push(String(parsed.student_id))
+            if (parsed.student_number) candidates.push(String(parsed.student_number)) // legacy support
             if (parsed.id) candidates.push(String(parsed.id))
         }
         candidates.push(text)
@@ -399,15 +485,30 @@ function onDecode(content) {
         for (const c of candidates) {
             const cc = (c || '').toString().trim()
             if (!cc) continue
-            fs = students.value.find(s => (s.email && String(s.email).toLowerCase() === cc.toLowerCase()) || String(s.id) === cc || String(s.studentId) === cc)
+            fs = students.value.find(s =>
+                (s.email && String(s.email).toLowerCase() === cc.toLowerCase()) ||
+                String(s.id) === cc ||
+                String(s.studentId) === cc
+            )
             if (fs) break
         }
 
-        // fallback: substring search in text
+        // fallback: substring search in text within known students
         if (!fs && text) {
             for (const s of students.value) {
                 if (s.studentId && text.includes(String(s.studentId))) { fs = s; break }
                 if (s.email && text.toLowerCase().includes(String(s.email).toLowerCase())) { fs = s; break }
+            }
+        }
+
+        // If still not found but QR encoded a full student object, use that directly
+        if (!fs && parsed && (parsed.name || parsed.email)) {
+            fs = {
+                id: parsed.id || null,
+                name: parsed.name || '',
+                email: parsed.email || '',
+                studentId: parsed.studentId || parsed.student_id || null,
+                status: parsed.status || '',
             }
         }
 
@@ -425,17 +526,86 @@ function onDecode(content) {
 
 const canBorrow = computed(() => !!selectedBook.value && !!selectedStudent.value)
 
-function confirmBorrow() {
-    if (!canBorrow.value) return
-    const record = {
-        book: selectedBook.value,
-        student: selectedStudent.value,
-        date: new Date().toLocaleString(),
+function showDialog(title, message, isError = false) {
+    dialog.value = {
+        visible: true,
+        title,
+        message,
+        isError
     }
-    recentBorrows.value.unshift(record)
-    // reset selection
-    selectedBook.value = null
-    selectedStudent.value = null
+}
+
+async function confirmBorrow() {
+    if (!canBorrow.value) return
+    
+    isBorrowing.value = true
+    
+    try {
+        // Ensure we have a valid internal student ID.
+        // If the student was selected from the dropdown, `id` should already be set.
+        // If the student came from a QR that didn't include `id`, try to resolve it
+        // via the Students backend using the student number.
+        let studentId = selectedStudent.value && selectedStudent.value.id
+
+        if (!studentId) {
+            const studentNumber = selectedStudent.value && (selectedStudent.value.studentId || selectedStudent.value.student_id)
+            if (!studentNumber) {
+                throw new Error('Selected student has no internal ID or student number. Please re-select the student from the list.')
+            }
+
+            const apiStudent = await getStudentByNumber(studentNumber)
+            if (!apiStudent || !apiStudent.id) {
+                throw new Error('Failed to resolve student from server. Please try again.')
+            }
+
+            studentId = apiStudent.id
+
+            // Optionally update the selected student with the resolved ID so future borrows work without extra lookups
+            selectedStudent.value = {
+                ...selectedStudent.value,
+                id: apiStudent.id,
+                email: apiStudent.email || selectedStudent.value.email,
+                name: [apiStudent.first_name, apiStudent.middle_name, apiStudent.last_name, apiStudent.suffix]
+                    .filter(Boolean)
+                    .join(' ') || selectedStudent.value.name,
+            }
+        }
+
+        const payload = {
+            student_id: studentId,
+            reference_number: selectedBook.value.bookCode,
+            duration: borrowDuration.value,
+        }
+
+        // Debug: inspect exactly what we send to backend
+        console.log('BorrowBooks – sending payload to backend:', payload, {
+            selectedStudent: selectedStudent.value,
+            selectedBook: selectedBook.value,
+        })
+
+        const result = await borrowBook(payload)
+        
+        // Add to recent borrows display
+        const record = {
+            book: selectedBook.value,
+            student: selectedStudent.value,
+            date: new Date().toLocaleString(),
+            duration: borrowDuration.value
+        }
+        recentBorrows.value.unshift(record)
+        
+        // Reset form
+        selectedBook.value = null
+        selectedStudent.value = null
+        borrowDuration.value = 14
+        
+        console.log('Borrow successful:', result)
+    } catch (error) {
+        console.error('Borrow failed:', error)
+        showDialog('Borrow Error', error.message || 'Failed to borrow book', true)
+    } finally {
+        isBorrowing.value = false
+    }
 }
 
 // simulate input for testing without a physical QR
@@ -445,6 +615,12 @@ function simulateScan() {
     // call the same decode handler as the scanner
     onDecode(simulateInput.value)
 }
+
+// Initial load
+onMounted(async () => {
+    await loadBooksFromApi()
+    await loadStudentsFromApi()
+})
 </script>
 
 <style scoped>

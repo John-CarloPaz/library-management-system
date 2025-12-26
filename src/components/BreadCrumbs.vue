@@ -54,6 +54,26 @@ export default {
         ];
       }
 
+      // Student routes: make sure the "Students" crumb points to /student-management
+      // Example: Home > Students > View 122301429
+      if (route.name === 'view-student' || route.name === 'edit-student' || route.name === 'create-student') {
+        const crumbs = [
+          { text: 'Home', to: '/' },
+          { text: 'Students', to: '/student-management' },
+        ];
+
+        if (route.name === 'create-student') {
+          crumbs.push({ text: 'Create Student', to: null });
+          return crumbs;
+        }
+
+        const paramKeys = Object.keys(route.params || {});
+        const id = route.params[paramKeys[0]] || '';
+        const action = route.name === 'view-student' ? 'View' : 'Edit';
+        crumbs.push({ text: `${action} ${id}`, to: null });
+        return crumbs;
+      }
+
       // default home crumb
       const crumbs = [{ text: 'Home', to: '/' }];
       const parts = route.path.split('/').filter(Boolean);

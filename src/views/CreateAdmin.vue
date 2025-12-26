@@ -64,34 +64,62 @@
                                 :error-messages="errors.branch_id" required variant="solo" />
                         </v-col>
                     </v-row>
-
+                    <!-- Employee Type row -->
+                    <v-row>
+                        <v-col cols="12" md="6">
+                            <v-select v-model="form.employee_type" :items="employeeTypeItems" label="Employee Type"
+                                :error-messages="errors.employee_type" required variant="solo" />
+                        </v-col>
+                    </v-row>
                     <v-row>
                         <v-col class="d-flex justify-end">
-                            <v-btn text @click="cancel" class="mr-3">Cancel</v-btn>
-                            <v-btn color="primary" @click="onSubmit">Create</v-btn>
+                            <v-btn text @click="cancel" class="mr-3" :disabled="isSubmitting">Cancel</v-btn>
+                            <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">Create</v-btn>
                         </v-col>
                     </v-row>
                 </v-form>
             </v-card-text>
         </v-card>
     </v-container>
+
+    <!-- Error Dialog -->
+    <ErrorDialog 
+        :visible.sync="dialog.visible" 
+        :title="dialog.title" 
+        :message="dialog.message" 
+        :isError="dialog.isError"
+        @update:visible="dialog.visible = $event"
+    />
 </template>
 
 <script>
-import admins from '@/data/admins.json'
 import AppBar from '@/components/AppBar.vue';
+import ErrorDialog from '@/components/ErrorDialog.vue';
+import { createAdmin, validateAdmin } from '@/services/admin'
 
 export default {
     name: 'create-admin',
-    components: { AppBar },
+    components: { AppBar, ErrorDialog },
     data() {
         return {
+            dialog: {
+                visible: false,
+                title: '',
+                message: '',
+                isError: false,
+            },
             // Simple branch options placeholder (replace with real branches when available)
             branchItems: [1, 2, 3, 4, 5].map(n => ({ value: n, title: `Branch ${n}` })),
             roleItems: [
                 { value: 'super_admin', title: 'Super Admin' },
                 { value: 'branch_admin', title: 'Branch Admin' },
                 { value: 'admin', title: 'Admin' },
+            ],
+            employeeTypeItems: [
+                { value: 'dean', title: 'Dean' },
+                { value: 'administrator', title: 'Administrator' },
+                { value: 'assistant', title: 'Assistant' },
+                { value: 'chief_librarian', title: 'Chief Librarian' },
             ],
             form: {
                 username: '',
@@ -104,8 +132,10 @@ export default {
                 suffix: '',
                 role: null,
                 branch_id: null,
+                employee_type: null,
             },
             errors: {},
+            isSubmitting: false,
         }
     },
     methods: {
@@ -116,96 +146,80 @@ export default {
             // Navigate back to previous page
             try { this.$router.back() } catch (e) { console.warn('Failed to navigate back', e) }
         },
-        addError(field, msg) {
-            if (!this.errors[field]) this.errors[field] = []
-            this.errors[field].push(msg)
-        },
         validate() {
-            this.resetErrors()
-
-            // username: required|string|max:255
-            if (!this.form.username || !this.form.username.toString().trim()) this.addError('username', 'Username is required')
-            else if (this.form.username.length > 255) this.addError('username', 'Username must be at most 255 characters')
-
-            // email: required|string|email|max:255|unique:users
-            if (!this.form.email || !this.form.email.toString().trim()) this.addError('email', 'Email is required')
-            else if (this.form.email.length > 255) this.addError('email', 'Email must be at most 255 characters')
-            else if (!/^\S+@\S+\.\S+$/.test(this.form.email)) this.addError('email', 'Email is not valid')
-            else if (admins.some(a => a.email && a.email.toLowerCase() === this.form.email.toLowerCase())) this.addError('email', 'Email already exists')
-
-            // employee_id: nullable|string|max:50|unique:users
-            if (this.form.employee_id && this.form.employee_id.toString().length > 15) this.addError('employee_id', 'Employee ID must be at most 50 characters')
-            else if (this.form.employee_id && admins.some(a => a.employee_id && a.employee_id.toString() === this.form.employee_id.toString())) this.addError('employee_id', 'Employee ID already exists')
-
-            // password: required|string|min:8
-            if (!this.form.password) this.addError('password', 'Password is required')
-            else if (this.form.password.length < 8) this.addError('password', 'Password must be at least 8 characters')
-
-            // first_name: required|string|max:100
-            if (!this.form.first_name || !this.form.first_name.toString().trim()) this.addError('first_name', 'First name is required')
-            else if (this.form.first_name.length > 100) this.addError('first_name', 'First name must be at most 100 characters')
-
-            // last_name: required|string|max:100
-            if (!this.form.last_name || !this.form.last_name.toString().trim()) this.addError('last_name', 'Last name is required')
-            else if (this.form.last_name.length > 100) this.addError('last_name', 'Last name must be at most 100 characters')
-
-            // middle_name: nullable|string|max:100
-            if (this.form.middle_name && this.form.middle_name.length > 100) this.addError('middle_name', 'Middle name must be at most 100 characters')
-
-            // suffix: nullable|string|max:50
-            if (this.form.suffix && this.form.suffix.length > 50) this.addError('suffix', 'Suffix must be at most 50 characters')
-
-            // role: required|in:super_admin,branch_admin,admin
-            const allowedRoles = ['super_admin', 'branch_admin', 'admin']
-            if (!this.form.role) this.addError('role', 'Role is required')
-            else if (!allowedRoles.includes(this.form.role)) this.addError('role', 'Role is not valid')
-
-            // branch_id: required|exists:branches,id -> we check presence and positive integer
-            if (this.form.branch_id === null || this.form.branch_id === undefined) this.addError('branch_id', 'Branch is required')
-            else if (!Number.isInteger(this.form.branch_id) && typeof this.form.branch_id !== 'number') this.addError('branch_id', 'Branch must be a number')
-
-            // return validity
-            return Object.keys(this.errors).every(k => !this.errors[k] || this.errors[k].length === 0)
+            const { isValid, errors } = validateAdmin(this.form)
+            this.errors = errors
+            return isValid
         },
-        onSubmit() {
+        async onSubmit() {
             if (!this.validate()) {
                 console.log('Validation failed', this.errors)
                 return
             }
 
-            const newAdmin = {
-                employee_id: this.form.employee_id || null,
-                email: this.form.email,
-                username: this.form.username,
-                password: this.form.password,
-                first_name: this.form.first_name,
-                last_name: this.form.last_name,
-                middle_name: this.form.middle_name || null,
-                suffix: this.form.suffix || null,
-                role: this.form.role,
-                branch_id: this.form.branch_id,
-                is_active: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            }
+            this.isSubmitting = true
 
-            console.log('New admin (client stub):', newAdmin)
-            try { window.alert('Admin created (client stub) — check console for object') } catch (e) { /* noop */ }
+            try {
+                const newAdmin = await createAdmin({
+                    username: this.form.username,
+                    email: this.form.email,
+                    password: this.form.password,
+                    first_name: this.form.first_name,
+                    last_name: this.form.last_name,
+                    middle_name: this.form.middle_name || null,
+                    suffix: this.form.suffix || null,
+                    employee_id: this.form.employee_id || null,
+                    role: this.form.role,
+                    branch_id: this.form.branch_id,
+                    employee_type: this.form.employee_type,
+                    is_active: true,
+                })
 
-            // reset form to initial values
-            this.form = {
-                username: '',
-                email: '',
-                employee_id: '',
-                password: '',
-                first_name: '',
-                last_name: '',
-                middle_name: '',
-                suffix: '',
-                role: null,
-                branch_id: null,
+                console.log('Admin created successfully:', newAdmin)
+
+                // Reset form
+                this.form = {
+                    username: '',
+                    email: '',
+                    employee_id: '',
+                    password: '',
+                    first_name: '',
+                    last_name: '',
+                    middle_name: '',
+                    suffix: '',
+                    role: null,
+                    branch_id: null,
+                    employee_type: null,
+                }
+                this.errors = {}
+
+                // Navigate back to admin list
+                setTimeout(() => {
+                    this.$router.push({ name: 'admin-management' })
+                }, 1500)
+            } catch (error) {
+                console.error('Failed to create admin:', error)
+                // Parse error response if it contains field errors
+                if (typeof error.message === 'string' && error.message.includes(':')) {
+                    const lines = error.message.split('\n')
+                    lines.forEach(line => {
+                        const [field, ...msg] = line.split(':')
+                        if (field && msg) {
+                            this.errors[field.trim()] = [msg.join(':').trim()]
+                        }
+                    })
+                } else {
+                    this.showDialog('Create Failed', 'Error: ' + (error.message || 'Unknown error'), true)
+                }
+            } finally {
+                this.isSubmitting = false
             }
-            this.errors = {}
+        },
+        cancel() {
+            this.$router.back()
+        },
+        showDialog(title, message, isError = false) {
+            this.dialog = { visible: true, title, message, isError }
         },
     },
 }

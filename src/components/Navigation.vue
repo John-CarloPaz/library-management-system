@@ -53,6 +53,8 @@ import logo from '../assets/spcf-logo.png'
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import usePermission from '@/composables/usePermission'
+import { logout as authLogout } from '@/services/auth'
+
 const drawer = ref(true)
 const rail = ref(true)
 
@@ -62,16 +64,18 @@ export default {
         return {
             logo,
             navigations: [
-                { icon: 'fa-book', title: 'Dashboard', to: '/home' },
-                { icon: 'fa-cogs', title: 'Branch Management', to: '/branch-management' },
-                { icon: 'fa-user-tie', title: 'Admin Management', to: '/admin-management' },
-                { icon: 'fa-users', title: 'Student Management', to: '/student-management' },
-                {icon: 'fa-list-check', title: 'Procurement', to: '/' },
-                {icon: 'fa-hand-holding-hand', title: 'Acquisition', to: '/' },
-                { icon: 'fa-book-open', title: 'Manage Books', to: '/manage-books' },
-                { icon: 'fa-id-card', title: 'Borrow Books', to: '/borrow-books' },
-                { icon: 'fa-handshake-simple', title: 'Return Books', to: '/return-books' },
-                { icon: 'fa-receipt', title: 'Records', to: '/records' },
+                { icon: 'fas fa-book', title: 'Dashboard', to: '/home' },
+                { icon: 'fas fa-cogs', title: 'Branch Management', to: '/branch' },
+                { icon: 'fas fa-user-tie', title: 'Admin Management', to: '/admin-management' },
+                { icon: 'fas fa-users', title: 'Student Management', to: '/student-management' },
+                {icon: 'fas fa-list-check', title: 'Procurement', to: '/procurement' },
+                {icon: 'fas fa-hand-holding-hand', title: 'Acquisition', to: '/acquisition' },
+                { icon: 'fas fa-folder', title: 'Catalogue', to: '/catalogue' },
+                { icon: 'fas fa-book-open', title: 'Manage Books', to: '/manage-books' },
+                { icon: 'fas fa-id-card', title: 'Borrow Books', to: '/borrow-books' },
+                { icon: 'fas fa-handshake-simple', title: 'Return Books', to: '/return-books' },
+                { icon: 'fas fa-clock-rotate-left', title: 'Extension', to: '/borrow-extensions' },
+                { icon: 'fas fa-receipt', title: 'Records', to: '/records' },
             ],
         }
     },
@@ -84,13 +88,9 @@ export default {
         const isLoggedIn = computed(() => !!(session && session.value))
 
         const logout = () => {
-            try {
-                localStorage.removeItem('app_session')
-            } catch (e) {
-                // ignore
-            }
-            // notify same-tab listeners and other tabs
-            try { window.dispatchEvent(new Event('storage')) } catch(e) {}
+            // Use auth service logout which clears token and session
+            authLogout()
+            // Notify and redirect
             router.push({ name: 'login' })
         }
 
@@ -100,10 +100,14 @@ export default {
     computed: {
         visibleNavigations() {
             const r = this.role
-            const allowedBasic = ['Dashboard', 'Manage Books', 'Borrow Books', 'Return Books']
+            const allowedBasic = ['Dashboard', 'Manage Books', 'Borrow Books', 'Return Books', 'Extension', 'Catalogue', 'Records', 'Procurement']
+            const allowedBranchAdmin = [...allowedBasic, 'Branch Management', 'Acquisition', 'Student Management']
             if (!r) return []
             if (r === 'super_admin') return this.navigations
-            if (r === 'branch_admin' || r === 'admin') {
+            if (r === 'branch_admin') {
+                return this.navigations.filter(n => allowedBranchAdmin.includes(n.title))
+            }
+            if (r === 'admin') {
                 return this.navigations.filter(n => allowedBasic.includes(n.title))
             }
             return []

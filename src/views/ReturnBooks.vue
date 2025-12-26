@@ -165,10 +165,34 @@
             </v-card>
         </v-dialog>
 
-        <!-- Actions and Recent Borrows (full width) -->
+        <!-- Penalty/Fine Fields (if book and student selected) -->
+        <v-row v-if="selectedBook && selectedStudent" class="mt-4">
+            <v-col cols="12" md="6">
+                <v-card elevation="2" class="pa-4">
+                    <h3 class="mb-4">Return Details</h3>
+                    <v-row>
+                        <v-col cols="12">
+                            <v-checkbox v-model="hasPenalty" label="Book returned with penalty/fine"></v-checkbox>
+                        </v-col>
+                        <v-col v-if="hasPenalty" cols="12">
+                            <v-text-field v-model.number="penaltyAmount" type="number" label="Penalty Amount ($)"
+                                step="0.01" min="0" />
+                        </v-col>
+                        <v-col v-if="hasPenalty" cols="12">
+                            <v-checkbox v-model="isPenaltyPaid" label="Penalty has been paid"></v-checkbox>
+                        </v-col>
+                        <v-col cols="12">
+                            <v-textarea v-model="returnRemarks" label="Return Remarks" rows="3"></v-textarea>
+                        </v-col>
+                    </v-row>
+                </v-card>
+            </v-col>
+        </v-row>
+
+        <!-- Actions and Recent Returns (full width) -->
         <v-row class="mt-4">
             <v-col cols="12" class="d-flex justify-end mb-4">
-                <v-btn color="primary" :disabled="!canBorrow" @click="confirmBorrow" size="large">
+                <v-btn color="primary" :disabled="!canReturn" @click="confirmReturn" size="large" :loading="isReturning">
                     <v-icon left icon="fa-book"></v-icon>
                     Confirm Return
                 </v-btn>
@@ -176,12 +200,12 @@
 
             <v-col cols="12">
                 <v-card elevation="2" class="pa-4">
-                    <h5 class="mb-2">Recent Return</h5>
+                    <h5 class="mb-2">Recent Returns</h5>
                     <v-list dense>
-                        <v-list-item v-for="(b, idx) in recentBorrows" :key="idx">
+                        <v-list-item v-for="(b, idx) in recentReturns" :key="idx">
                             <v-list-item-content>
                                 <v-list-item-title>{{ b.book.title }}</v-list-item-title>
-                                <v-list-item-subtitle>{{ b.student.name }} — {{ b.date }}</v-list-item-subtitle>
+                                <v-list-item-subtitle>{{ b.student.name }} — {{ b.date }} <span v-if="b.penalty" class="text-error">(Penalty: ${{ b.penalty }})</span></v-list-item-subtitle>
                             </v-list-item-content>
                         </v-list-item>
                     </v-list>
@@ -189,42 +213,54 @@
             </v-col>
         </v-row>
     </v-container>
+
+    <!-- Error Dialog -->
+    <ErrorDialog 
+        :visible.sync="dialog.visible" 
+        :title="dialog.title" 
+        :message="dialog.message" 
+        :isError="dialog.isError"
+        @update:visible="dialog.visible = $event"
+    />
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
 import AppBar from '../components/AppBar.vue'
-import booksData from '@/data/books.test.json'
-import borrowers from '@/data/borrower.test.json'
+import ErrorDialog from '../components/ErrorDialog.vue'
+import { returnBook, getBorrowRecords } from '../services/borrow.js'
 
 const router = useRouter()
 
-// Use in-memory test data for now. Wrap in refs so we can swap to API calls later.
-const books = ref(booksData || [])
-// Use borrower.test.json for student list during testing
-const students = ref(borrowers || [])
+// Derived from backend borrow records
+const books = ref([])
+const students = ref([])
+const borrowRecords = ref([])
+const currentBorrowId = ref(null)
 
-// Placeholder functions to load from remote API later. Replace the inner logic to fetch from your backend.
-async function loadBooksFromApi() {
-    // Example:
-    // const res = await fetch('/api/books');
-    // books.value = await res.json();
-    return books.value
-}
+// Dialog state for error handling
+const dialog = ref({
+    visible: false,
+    title: '',
+    message: '',
+    isError: false
+})
 
-async function loadStudentsFromApi() {
-    // Example:
-    // const res = await fetch('/api/students');
-    // students.value = await res.json();
-    return students.value
-}
+// Loading state
+const isReturning = ref(false)
+
+// Return-specific fields
+const hasPenalty = ref(false)
+const penaltyAmount = ref(0)
+const isPenaltyPaid = ref(false)
+const returnRemarks = ref('')
+const recentReturns = ref([])
 
 const selectedBook = ref(null)
 const selectedStudent = ref(null)
 const lastScanned = ref('')
-const recentBorrows = ref([])
 
 const scannerOpen = ref(false)
 const scannerMode = ref('book')
@@ -375,6 +411,12 @@ function onDecode(content) {
 
         if (fb) {
             selectedBook.value = fb
+            // also set matching student and borrow ID
+            const rec = borrowRecords.value.find(r => r.book.bookCode === fb.bookCode)
+            if (rec) {
+                selectedStudent.value = rec.student
+                currentBorrowId.value = rec.id
+            }
             // close scanner and update camera status
             scannerOpen.value = false
             cameraStatus.value = 'stopped'
@@ -423,7 +465,64 @@ function onDecode(content) {
     }
 }
 
-const canBorrow = computed(() => !!selectedBook.value && !!selectedStudent.value)
+const canReturn = computed(() => !!selectedBook.value && !!selectedStudent.value)
+
+function showDialog(title, message, isError = false) {
+    dialog.value = {
+        visible: true,
+        title,
+        message,
+        isError
+    }
+}
+
+async function confirmReturn() {
+    if (!canReturn.value) return
+    
+    isReturning.value = true
+    
+    try {
+        if (!currentBorrowId.value) {
+            showDialog('Return Error', 'No matching borrow record found for this book and borrower.', true)
+            return
+        }
+
+        const payload = {
+            status: 'returned',
+            return_date: new Date().toISOString().split('T')[0],
+            penalty_amount: hasPenalty.value ? penaltyAmount.value : 0,
+            is_fine_paid: isPenaltyPaid.value,
+            remarks: returnRemarks.value
+        }
+        
+        const result = await returnBook(currentBorrowId.value, payload)
+        
+        // Add to recent returns display
+        const record = {
+            book: selectedBook.value,
+            student: selectedStudent.value,
+            date: new Date().toLocaleString(),
+            penalty: hasPenalty.value ? penaltyAmount.value : null
+        }
+        recentReturns.value.unshift(record)
+        
+        // Reset form
+        selectedBook.value = null
+        selectedStudent.value = null
+        currentBorrowId.value = null
+        hasPenalty.value = false
+        penaltyAmount.value = 0
+        isPenaltyPaid.value = false
+        returnRemarks.value = ''
+        
+        console.log('Return successful:', result)
+    } catch (error) {
+        console.error('Return failed:', error)
+        showDialog('Return Error', error.message || 'Failed to return book', true)
+    } finally {
+        isReturning.value = false
+    }
+}
 
 function confirmBorrow() {
     if (!canBorrow.value) return
@@ -432,7 +531,7 @@ function confirmBorrow() {
         student: selectedStudent.value,
         date: new Date().toLocaleString(),
     }
-    recentBorrows.value.unshift(record)
+    // recentBorrows.value.unshift(record)
     // reset selection
     selectedBook.value = null
     selectedStudent.value = null
@@ -445,6 +544,58 @@ function simulateScan() {
     // call the same decode handler as the scanner
     onDecode(simulateInput.value)
 }
+
+// Load current borrow records and derive selectable books/students
+async function loadBorrowData() {
+    try {
+        const data = await getBorrowRecords()
+        const raw = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : [])
+
+        // Keep only active/borrowed records
+        borrowRecords.value = raw
+            .filter(r => (r.status || 'borrowed') === 'borrowed')
+            .map(record => ({
+                id: record.id,
+                book: {
+                    title: record.book?.title || record.book_title || '',
+                    author: record.book?.author || record.book_author || '',
+                    bookCode: record.reference_id || record.book_code || record.book?.reference_number || '',
+                },
+                student: {
+                    id: record.student?.id || record.student_id || null,
+                    name: record.student?.name || record.student_name || '',
+                    email: record.student?.email || record.student_email || '',
+                    studentId: record.student?.student_id || record.student_id_number || null,
+                },
+                dueDate: record.due_date,
+                status: record.status || 'borrowed',
+            }))
+
+        // Derive unique books and students for dropdowns
+        const bookMap = new Map()
+        const studentMap = new Map()
+        for (const r of borrowRecords.value) {
+            if (r.book && r.book.bookCode && !bookMap.has(r.book.bookCode)) {
+                bookMap.set(r.book.bookCode, r.book)
+            }
+            const skey = r.student.id || r.student.email || r.student.studentId
+            if (skey && !studentMap.has(skey)) {
+                studentMap.set(skey, r.student)
+            }
+        }
+        books.value = Array.from(bookMap.values())
+        students.value = Array.from(studentMap.values())
+
+        console.log('ReturnBooks loaded borrow records:', borrowRecords.value.length)
+    } catch (error) {
+        console.error('Failed to load borrow records for return:', error)
+        showDialog('Load Error', error.message || 'Failed to load borrow records.', true)
+    }
+}
+
+onMounted(() => {
+    loadBorrowData()
+})
 </script>
 
 <style scoped>

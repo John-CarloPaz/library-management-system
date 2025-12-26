@@ -27,7 +27,7 @@
 <script>
 import AppBar from '../components/AppBar.vue'
 import Table from '@/components/Table.vue';
-import branchesData from '../data/branches.json';
+import { listActiveBranches } from '@/services/branch';
 export default {
     name: 'branch-management',
     components: {
@@ -38,7 +38,8 @@ export default {
         return {
             loading: false,
             search: '',
-            branches: branchesData.slice(),
+            branches: [],
+            allBranches: [],
             branchHeaders: [
                 { text: 'Branch ID', value: 'id' },
                 { text: 'Branch Name', value: 'name' },
@@ -50,14 +51,29 @@ export default {
             ],
         };
     },
+    mounted() {
+        this.loadBranches();
+    },
     methods: {
+        async loadBranches() {
+            this.loading = true;
+            try {
+                const data = await listActiveBranches();
+                this.allBranches = Array.isArray(data) ? data : [];
+                this.branches = this.allBranches.slice();
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
         onSearch() {
             const q = this.search && this.search.toLowerCase();
             if (!q) {
-                this.branches = branchesData.slice();
+                this.branches = this.allBranches.slice();
                 return;
             }
-            this.branches = branchesData.filter(b =>
+            this.branches = this.allBranches.filter(b =>
                 Object.values(b).join(' ').toLowerCase().includes(q)
             );
         },
