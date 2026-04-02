@@ -10,8 +10,9 @@
                             label="Search" 
                             variant="solo-filled"
                             hide-details="auto" 
-                            @input="applyFilters" 
+                            @input="onSearch" 
                             style="max-width:360px;" 
+                            prepend-inner-icon="fas fa-magnifying-glass"
                         />
                     </template>
 
@@ -29,9 +30,9 @@
                 <FilterDrawer
                     v-model="filters"
                     :filters="['search', 'status', 'branch', 'dateAddedRange']"
-                    :statusOptions="catalogingStatusOptions"
+                    :statusOptions="bookStatusOptions"
                     :branchOptions="branches"
-                    @update:modelValue="applyFilters"
+                    @apply="onApplyFilters"
                 />
 
                 <!-- Reusable table component -->
@@ -48,15 +49,20 @@
                         <span v-if="isExpired(item.expiration)" style="color:#d32f2f;font-weight:600">expired</span>
                         <span v-else>{{ formatDate(item.expiration) }}</span>
                     </template>
+                    <template #cell-branch_name="{ item }">
+                        <v-chip :color="branchColor(item.branch_name, item.branch_id)" size="small" variant="elevated">
+                            {{ item.branch_name }}
+                        </v-chip>
+                    </template>
                     <template #actions="{ item }">
                         <v-btn icon="fa-eye" size="x-small" variant="plain" @click.stop="viewBook(item)"></v-btn>
-                        <v-btn v-if="canEdit && scope === 'active'" icon="fa-pencil" size="x-small" variant="plain"
+                        <v-btn v-if="canShowEditButton(item)" icon="fa-pencil" size="x-small" variant="plain"
                             @click.stop="editBook(item)"></v-btn>
+                        <v-btn icon="fa-qrcode" size="x-small" variant="plain" @click.stop="printQr(item)"></v-btn>
                         <v-btn v-if="canArchive && scope === 'active'" icon="fa-box-archive" size="x-small" variant="plain"
                             @click.stop="archiveBookAction(item)"></v-btn>
                         <v-btn v-if="canRestore && scope === 'archived'" icon="fa-rotate-left" size="x-small" variant="plain"
                             @click.stop="restoreBookAction(item)" title="Restore"></v-btn>
-                        <v-btn icon="fa-qrcode" size="x-small" variant="plain" @click.stop="printQr(item)"></v-btn>
                     </template>
                 </Table>
                 <div class="mt-4">
@@ -64,8 +70,6 @@
                     <a href="#" @click.prevent="onDownloadCsv">CSV</a>
                     <span class="mr-1">,</span>
                     <a href="#" @click.prevent="onDownloadJson">JSON</a>
-                    <span class="mr-1">,</span>
-                    <a href="#" @click.prevent="onDownloadXml">XML</a>
                 </div>
             </v-col>
         </v-row>
@@ -76,6 +80,21 @@
             :isError="dialog.isError"
             @update:visible="dialog.visible = $event"
         />
+
+        <!-- Confirm Dialog -->
+        <v-dialog v-model="confirmDialog.visible" max-width="480px">
+            <v-card>
+                <v-card-title class="text-h6">{{ confirmDialog.title }}</v-card-title>
+                <v-card-text>
+                    <div>{{ confirmDialog.message }}</div>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn variant="text" @click="confirmDialog.visible = false">Cancel</v-btn>
+                    <v-btn color="primary" @click="confirmDialogConfirmed">Confirm</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </v-container>
 </template>
 
@@ -85,7 +104,7 @@ import AppBar from '../components/AppBar.vue';
 import ScopeTab from '../components/ScopeTab.vue';
 import FilterDrawer from '../components/FilterDrawer.vue';
 import ErrorDialog from '@/components/ErrorDialog.vue'
-import { exportAsCsv, exportAsJson, exportAsXml } from '@/services/export'
+import { exportAsCsv, exportAsJson } from '@/services/export'
 import { printQrCodes } from '@/services/qrPrint'
 import { fetchBooksPage, archiveBook, restoreBook } from '@/services/book'
 import { subscribeToActions, waitForEchoConnection } from '@/services/realtime'
@@ -102,6 +121,8 @@ export default {
             loading: false,
             search: '',
             scope: 'active',
+            suppressScopeWatcher: false,
+            skipApplyAfterLoad: false,
             scopeCounts: {
                 active: null,
                 archived: null,
@@ -122,29 +143,32 @@ export default {
                 dateAddedFrom: '',
                 dateAddedTo: ''
             },
-            catalogingStatusOptions: [
-                { value: 'pending', title: 'Pending' },
-                { value: 'cataloged', title: 'Cataloged' },
-                { value: 'available', title: 'Available' }
+            bookStatusOptions: [
+                { value: 'active', title: 'Active' },
+                { value: 'for_archiving', title: 'For Archiving' },
+                { value: 'lost', title: 'Lost' },
+                { value: 'damaged', title: 'Damaged' },
+                { value: 'under_repair', title: 'Under Repair' },
             ],
             branches: [],
             bookScopes: [
+                { value: 'all', label: 'All' },
                 { value: 'active', label: 'Active' },
                 { value: 'for_archiving', label: 'For Archiving' },
                 { value: 'lost', label: 'Lost' },
                 { value: 'damaged', label: 'Damaged' },
                 { value: 'under_repair', label: 'Under Repair' },
-                { value: 'archived', label: 'Archived' },
             ],
             bookHeaders: [
-                { text: 'Copy No.', value: 'copy_number' },
+                { text: 'Internal ID', value: 'id' },
                 { text: 'Reference No.', value: 'reference_number' },
                 { text: 'Title', value: 'title' },
                 { text: 'Author', value: 'author' },
-                { text: 'Branch', value: 'branch_name' },
                 { text: 'Year', value: 'year_of_publication' },
                 { text: 'Edition', value: 'edition' },
-                { text: 'Status', value: 'cataloging_status' },
+                { text: 'Copy No.', value: 'copy_number' },
+                { text: 'Branch', value: 'branch_name' },
+                { text: 'Status', value: 'book_status' },
                 { text: 'Actions', value: 'actions', sortable: false },
             ],
             canArchive: canCheck(ACTIONS.ARCHIVE),
@@ -161,10 +185,23 @@ export default {
                 message: '',
                 isError: true,
             },
+            confirmDialog: {
+                visible: false,
+                title: '',
+                message: '',
+                action: null,
+                payload: null,
+            },
         };
     },
     watch: {
         scope() {
+            // Allow programmatic suppression
+            if (this.suppressScopeWatcher) {
+                this.suppressScopeWatcher = false
+                return
+            }
+
             // Reset non-scope filters and reload books from backend using scope filters
             this.onScopeChange()
             this.loadItems({
@@ -241,6 +278,12 @@ export default {
             }
         },
         async loadItems({ page, itemsPerPage, sortBy }) {
+            console.log('ManageBooks.loadItems called with:', {
+                page,
+                itemsPerPage,
+                sortBy,
+                scope: this.scope,
+            })
             if (!this.isRealtimeUpdate) {
                 this.loading = true
             }
@@ -251,20 +294,33 @@ export default {
                 sortBy: sortBy || [],
             }
 
+            console.log('ManageBooks.tableOptions set to:', this.tableOptions)
+
             try {
                 const scopeFilters = this.getScopeFilters()
+                console.log('ManageBooks.getScopeFilters returned:', scopeFilters)
                 const { items, total } = await fetchBooksPage({
                     ...scopeFilters,
                     page: this.tableOptions.page,
                     itemsPerPage: this.tableOptions.itemsPerPage,
                 })
 
+                console.log('ManageBooks.fetchBooksPage response meta:', {
+                    rawItemsType: Array.isArray(items) ? 'array' : typeof items,
+                    rawItemsLength: Array.isArray(items) ? items.length : 0,
+                    total,
+                })
+
                 this.allBooks = (Array.isArray(items) ? items : []).map(book => ({
                     ...book,
-                    branch_name: book.branch?.name || `Branch ${book.branch_id}`,
+                    branch_id: book.branch?.id ?? book.branch_id ?? null,
+                    branch_name: book.branch?.name || `Branch ${book.branch_id || (book.branch && book.branch.id) || ''}`,
                 }))
 
+                console.log('ManageBooks.allBooks length after mapping:', this.allBooks.length)
                 this.totalBooks = typeof total === 'number' ? total : this.allBooks.length
+
+                console.log('ManageBooks.totalBooks set to:', this.totalBooks)
 
                 this.applyFilters()
             } catch (error) {
@@ -278,21 +334,24 @@ export default {
          * Map current scope to backend filters for books.
          */
         getScopeFilters() {
+            if (this.scope === 'all') {
+                return { status: null, archived: 'false' }
+            }
             if (this.scope === 'active') {
-                // All active, non-archived books regardless of specific book_status
-                return { active: true, archived: 'false' }
+                // All books whose book_status is "active" and not archived
+                return { status: 'active', archived: 'false' }
             }
             if (this.scope === 'for_archiving') {
-                return { status: 'for_archiving', archived: 'false', active: true }
+                return { status: 'for_archiving', archived: 'false' }
             }
             if (this.scope === 'lost') {
-                return { status: 'lost', archived: 'false', active: true }
+                return { status: 'lost', archived: 'false' }
             }
             if (this.scope === 'damaged') {
-                return { status: 'damaged', archived: 'false', active: true }
+                return { status: 'damaged', archived: 'false' }
             }
             if (this.scope === 'under_repair') {
-                return { status: 'under_repair', archived: 'false', active: true }
+                return { status: 'under_repair', archived: 'false' }
             }
             if (this.scope === 'archived') {
                 return { archived: 'true' }
@@ -337,6 +396,36 @@ export default {
             this.canEdit = canCheck(ACTIONS.EDIT)
             this.canCreate = canCheck(ACTIONS.CREATE)
         },
+        canEditBook(book) {
+            try {
+                const session = getSession()
+                const role = session && session.role ? String(session.role).toLowerCase() : ''
+
+                // Super admin can edit all
+                if (role === 'super_admin') return true
+
+                // Admins cannot edit
+                if (role === 'admin') return false
+
+                // Branch admin can edit only books in their branch
+                if (role === 'branch_admin') {
+                    const sessionBranch = session.branch_id != null ? Number(session.branch_id) : session.branch_id
+                    return sessionBranch != null && Number(book.branch_id) === Number(sessionBranch)
+                }
+            } catch (e) {
+                // fallback
+            }
+
+            return this.canEdit
+        },
+        canShowEditButton(book) {
+            // Requested: show Edit in All / For Archiving / Lost / Damaged / Under Repair (and keep it in Active).
+            // Do not show edit for archived items.
+            if (!book) return false
+            if (this.scope === 'archived') return false
+            if (book.is_archived) return false
+            return this.canEditBook(book)
+        },
         viewBook(item) {
             // navigate to view details for this book
             if (!item || !item.id) {
@@ -351,7 +440,8 @@ export default {
                 console.warn('editBook called without valid item:', item);
                 return;
             }
-            if (!canCheck(ACTIONS.EDIT)) {
+            // Enforce role-based access: only branch_admin (own branch) and super_admin.
+            if (!this.canEditBook(item)) {
                 this.dialog = {
                     visible: true,
                     title: 'Permission Denied',
@@ -378,20 +468,18 @@ export default {
                 return;
             }
 
-            try {
-                if (confirm('Are you sure you want to archive this book?')) {
-                    await archiveBook(item.id);
-                    await this.loadBooks();
+            // show confirm dialog and perform archive on confirm
+            this.openConfirm(async (payload) => {
+                try {
+                    await archiveBook(payload)
+                    await this.loadItems(this.tableOptions)
+                    this.dialog = { visible: true, title: 'Success', message: 'Book archived', isError: false }
+                } catch (error) {
+                    console.error('Error archiving book:', error)
+                    const message = error.response?.data?.message || error.message || 'Unknown error'
+                    this.dialog = { visible: true, title: 'Archive Failed', message, isError: true }
                 }
-            } catch (error) {
-                console.error('Error archiving book:', error)
-                this.dialog = {
-                    visible: true,
-                    title: 'Archive Failed',
-                    message: 'Error archiving book: ' + (error.message || 'Unknown error'),
-                    isError: true,
-                }
-            }
+            }, 'Archive Book', 'Are you sure you want to archive this book?', item.id)
         },
         // Restore action
         async restoreBookAction(item) {
@@ -400,20 +488,17 @@ export default {
                 return;
             }
 
-            try {
-                if (confirm('Are you sure you want to restore this book?')) {
-                    await restoreBook(item.id);
-                    await this.loadBooks();
+            this.openConfirm(async (payload) => {
+                try {
+                    await restoreBook(payload)
+                    await this.loadItems(this.tableOptions)
+                    this.dialog = { visible: true, title: 'Success', message: 'Book restored', isError: false }
+                } catch (error) {
+                    console.error('Error restoring book:', error)
+                    const message = error.response?.data?.message || error.message || 'Unknown error'
+                    this.dialog = { visible: true, title: 'Restore Failed', message, isError: true }
                 }
-            } catch (error) {
-                console.error('Error restoring book:', error)
-                this.dialog = {
-                    visible: true,
-                    title: 'Restore Failed',
-                    message: 'Error restoring book: ' + (error.message || 'Unknown error'),
-                    isError: true,
-                }
-            }
+            }, 'Restore Book', 'Are you sure you want to restore this book?', item.id)
         },
         onScopeChange() {
             this.filters.search = ''
@@ -428,14 +513,27 @@ export default {
         onDownloadJson() {
             exportAsJson(this.books, 'books.json');
         },
-        onDownloadXml() {
-            exportAsXml(this.books, this.bookHeaders, 'books.xml', { rootName: 'books', itemName: 'book' });
-        },
         onSearch() {
-            this.applyFilters()
+            // Treat search as server-driven: apply current filters via server
+            this.onApplyFilters(this.filters)
         },
         applyFilters() {
+            console.log('ManageBooks.applyFilters called with:', {
+                scope: this.scope,
+                filters: { ...this.filters },
+                allBooksLength: this.allBooks.length,
+                totalBooks: this.totalBooks,
+            })
+            // If the last load was a server-side apply, skip client-side re-filter
+            if (this.skipApplyAfterLoad) {
+                this.skipApplyAfterLoad = false
+                this.books = this.allBooks.slice()
+                return
+            }
+
             let filtered = this.allBooks.slice()
+
+            console.log('ManageBooks.applyFilters start length:', filtered.length)
 
             // Filter by search (copy number, reference number, title, author, year, edition)
             if (this.filters.search) {
@@ -448,15 +546,20 @@ export default {
                     (book.year_of_publication && book.year_of_publication.toString().toLowerCase().includes(q)) ||
                     (book.edition && book.edition.toLowerCase().includes(q))
                 )
+
+                console.log('ManageBooks.applyFilters after search filter length:', filtered.length)
             }
 
-            // Filter by cataloging status
+            // Filter by book status
             if (this.filters.status && this.filters.status.length > 0) {
-                filtered = filtered.filter(book => this.filters.status.includes(book.cataloging_status))
+                filtered = filtered.filter(book => this.filters.status.includes(book.book_status))
+                console.log('ManageBooks.applyFilters after status filter length:', filtered.length)
             }
 
             // Filter by branch
             filtered = filterByBranchIds(filtered, this.filters.branch, (book) => book.branch_id)
+
+            console.log('ManageBooks.applyFilters after branch filter length:', filtered.length)
 
             // Filter by date added range
             if (this.filters.dateAddedFrom || this.filters.dateAddedTo) {
@@ -477,9 +580,95 @@ export default {
                     
                     return true
                 })
+
+                console.log('ManageBooks.applyFilters after date range filter length:', filtered.length)
             }
 
             this.books = filtered
+            console.log('ManageBooks.applyFilters final books length:', this.books.length)
+        },
+        async onApplyFilters(newFilters) {
+            // Called when FilterDrawer emits Apply. Switch to 'all' scope and fetch server-side.
+            this.filters = { ...newFilters }
+            this.suppressScopeWatcher = true
+            this.scope = 'all'
+            await this.fetchFilteredBooksFromServer({ page: 1, itemsPerPage: this.itemsPerPage })
+        },
+        async fetchFilteredBooksFromServer(opts = {}) {
+            const scopeFilters = this.getScopeFilters() || {}
+            const params = {
+                ...scopeFilters,
+                page: opts.page || this.tableOptions.page || 1,
+                itemsPerPage: opts.itemsPerPage || this.tableOptions.itemsPerPage || this.itemsPerPage,
+            }
+
+            // Merge UI filters into params
+            if (this.filters.search) params.search = this.filters.search
+            if (this.filters.status && this.filters.status.length === 1) params.status = this.filters.status[0]
+            else if (this.filters.status && this.filters.status.length > 1) params.status = this.filters.status
+            // backend expects branch_id; send scalar when single selection, array otherwise
+            if (this.filters.branch && this.filters.branch.length === 1) params.branch_id = this.filters.branch[0]
+            else if (this.filters.branch && this.filters.branch.length > 1) params.branch_id = this.filters.branch
+            if (this.filters.dateAddedFrom) params.date_added_from = this.filters.dateAddedFrom
+            if (this.filters.dateAddedTo) params.date_added_to = this.filters.dateAddedTo
+
+            this.loading = true
+            try {
+                const { items, total } = await fetchBooksPage(params)
+                this.allBooks = (Array.isArray(items) ? items : []).map(book => ({
+                    ...book,
+                    branch_id: book.branch?.id ?? book.branch_id ?? null,
+                    branch_name: book.branch?.name || `Branch ${book.branch_id || (book.branch && book.branch.id) || ''}`,
+                }))
+                this.totalBooks = typeof total === 'number' ? total : this.allBooks.length
+
+                // Prevent applyFilters from re-filtering immediately (we already used server-side results)
+                this.skipApplyAfterLoad = true
+                this.books = this.allBooks.slice()
+            } catch (error) {
+                console.error('Error fetching filtered books from server:', error)
+                this.books = []
+            } finally {
+                this.loading = false
+            }
+        },
+        openConfirm(actionFn, title = 'Confirm', message = 'Are you sure?', payload = null) {
+            this.confirmDialog = { visible: true, title, message, action: actionFn, payload }
+        },
+        async confirmDialogConfirmed() {
+            if (this.confirmDialog && typeof this.confirmDialog.action === 'function') {
+                const action = this.confirmDialog.action
+                const payload = this.confirmDialog.payload
+                this.confirmDialog.visible = false
+                try {
+                    await action(payload)
+                } catch (e) {
+                    console.error('Confirm action failed:', e)
+                }
+            } else {
+                this.confirmDialog.visible = false
+            }
+        },
+        branchColor(branchName, branchId) {
+            const palette = ['blue', 'green', 'amber', 'red', 'purple', 'teal', 'grey']
+            let idx = 0
+            if (branchId !== undefined && branchId !== null) {
+                const n = Number(branchId)
+                if (!Number.isNaN(n)) idx = Math.abs(n) % palette.length
+            } else if (branchName) {
+                idx = Math.abs(this._hashString(branchName)) % palette.length
+            }
+            return palette[idx]
+        },
+        _hashString(s) {
+            let h = 0
+            if (!s) return h
+            for (let i = 0; i < s.length; i++) {
+                const ch = s.charCodeAt(i)
+                h = ((h << 5) - h) + ch
+                h |= 0
+            }
+            return h
         },
         printQr(item) {
             if (!item) {

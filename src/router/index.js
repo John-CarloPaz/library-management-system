@@ -8,9 +8,28 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('@/views/notifications/NotificationList.vue'),
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
+    },
+    {
       path: '/home',
       name: 'home',
       component: Dashboard,
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
+    },
+    {
+      path: '/account',
+      name: 'account',
+      component: () => import('@/views/AccountView.vue'),
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
+    },
+    {
+      path: '/account/edit',
+      name: 'account-edit',
+      component: () => import('@/views/AccountEdit.vue'),
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
       path: '/manage-books',
@@ -33,9 +52,13 @@ const router = createRouter({
       meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
-      path: '/',
+      path: '/login',
       name: 'login',
       component: Login,
+    },
+    {
+      path: '/',
+      redirect: { name: 'home' },
     },
     {
       path: '/branch-management',
@@ -45,30 +68,30 @@ const router = createRouter({
     },
     
     {
-      path: '/student-management',
-      name: 'student-management',
+      path: '/member-management',
+      name: 'member-management',
       component: () => import('@/views/students/StudentManagement.vue'),
-      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
       path: '/students/create',
       name: 'create-student',
       component: () => import('@/views/students/CreateStudent.vue'),
-      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
       path: '/students/edit/:studentNumber',
       name: 'edit-student',
       component: () => import('@/views/students/EditStudent.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
       path: '/students/view/:studentNumber',
       name: 'view-student',
       component: () => import('@/views/students/ViewStudentDetails.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
       path: '/records',
@@ -80,7 +103,7 @@ const router = createRouter({
       path: '/admin-management',
       name: 'admin-management',
       component: () => import('@/views/AdminManagement.vue'),
-      meta: { requiresAuth: true, roles: ['super_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
     },
     {
       path: '/create-admin',
@@ -99,7 +122,7 @@ const router = createRouter({
       name: 'view-admin',
       component: () => import('@/views/ViewAdminDetails.vue'),
       props: true,
-      meta: { requiresAuth: true, roles: ['super_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
     },
     {
       path: '/return-books',
@@ -120,10 +143,16 @@ const router = createRouter({
       meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
+      path: '/borrow-reminders/emailed',
+      name: 'borrow-reminders-emailed',
+      component: () => import('@/views/borrows/EmailedReminders.vue'),
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
+    },
+    {
       path: '/acquisition',
       name: 'acquisition',
       component: () => import('@/views/acquisition/Acquisition.vue'),
-      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
       path: '/acquisition/create',
@@ -191,7 +220,7 @@ const router = createRouter({
       meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
-      path: '/procurement/:id/edit',
+      path: '/procurement/edit/:id',
       name: 'edit-procurement',
       component: () => import('@/views/procurement/EditProcurement.vue'),
       props: true,
@@ -202,6 +231,38 @@ const router = createRouter({
       name: 'view-procurement',
       component: () => import('@/views/procurement/ViewProcurementDetails.vue'),
       props: true,
+      meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
+    },
+    {
+      path: '/semesters',
+      name: 'semester-management',
+      component: () => import('@/views/semesters/SemesterManagement.vue'),
+      meta: { requiresAuth: true, roles: ['super_admin'] },
+    },
+    {
+      path: '/semesters/view/:id',
+      name: 'view-semester',
+      component: () => import('@/views/semesters/ViewSemesterDetails.vue'),
+      props: true,
+      meta: { requiresAuth: true, roles: ['super_admin'] },
+    },
+    {
+      path: '/semesters/create',
+      name: 'create-semester',
+      component: () => import('@/views/semesters/CreateSemester.vue'),
+      meta: { requiresAuth: true, roles: ['super_admin'] },
+    },
+    {
+      path: '/semesters/edit/:id',
+      name: 'edit-semester',
+      component: () => import('@/views/semesters/EditSemester.vue'),
+      props: true,
+      meta: { requiresAuth: true, roles: ['super_admin'] },
+    },
+    {
+      path: '/chat',
+      name: 'chat',
+      component: () => import('@/views/chat/Chat.vue'),
       meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin', 'admin'] },
     },
     {
@@ -230,6 +291,7 @@ const router = createRouter({
       props: true,
       meta: { requiresAuth: true, roles: ['super_admin', 'branch_admin'] },
     },
+    
     //   path: '/about',
     //   name: 'about',
     //   // route level code-splitting
@@ -258,8 +320,8 @@ router.beforeEach((to, from, next) => {
 
   if (requiresAuth) {
     if (!session || !session.email) {
-      const msg = "Access denied: you must be logged in to view";
-      try { window.alert(msg); } catch(e) { console.warn(msg); }
+      // Redirect unauthenticated users silently to login
+      console.warn('Redirecting to login: unauthenticated');
       return next({ name: 'login' });
     }
 
@@ -275,11 +337,20 @@ router.beforeEach((to, from, next) => {
 
       // Super admin bypass or membership in allowed set (normalized).
       if (normalizedRole === 'super_admin' || allowedNormalized.includes(normalizedRole)) {
+        // Extra employee_type-based restrictions
+        const employeeType = session.employee_type || null;
+
+        // Deans cannot access borrow/return/extension/records routes
+        const deanBlockedRouteNames = new Set(['borrow-books', 'return-books', 'borrow-extensions', 'records']);
+        if (employeeType === 'dean' && deanBlockedRouteNames.has(to.name)) {
+          console.warn('Access denied for dean to route:', to.name);
+          return next({ name: 'home' });
+        }
+
         return next();
       }
       // not authorized -> show dialog and redirect to login (or a 403 page)
-      const msg = `Access denied: your role ('${role}') is not allowed to visit '${to.name || to.path}'.`;
-      try { window.alert(msg); } catch(e) { console.warn(msg); }
+      console.warn(`Access denied: role '${role}' not allowed for route '${to.name || to.path}'.`);
       return next({ name: 'login' });
     }
 

@@ -18,7 +18,7 @@ const POLICY = {
   [ACTIONS.ARCHIVE]: ['super_admin'],
   [ACTIONS.PRINT_QR]: ['super_admin', 'branch_admin'],
   [ACTIONS.CREATE]: ['super_admin', 'branch_admin'],
-  [ACTIONS.EDIT]: ['super_admin', 'branch_admin'],
+  [ACTIONS.EDIT]: ['super_admin', 'branch_admin', 'admin'],
   [ACTIONS.VIEW]: ['super_admin', 'branch_admin', 'admin'],
   [ACTIONS.DELETE]: ['super_admin'],
   [ACTIONS.NOTIF]: ['super_admin'],
@@ -54,7 +54,16 @@ export function can(action, session = null) {
   if (!allowed || !Array.isArray(allowed)) return false;
   const s = session || getSession();
   if (!s || !s.role) return false;
-  return hasRole(s.role, allowed);
+  // Standard role check
+  if (hasRole(s.role, allowed)) return true;
+
+  // Special-case: allow `admin` users with certain employee types to perform some actions
+  // e.g., allow `admin` whose `employee_type` is `dean` to create procurement requests
+  if (s.role === 'admin' && action === ACTIONS.CREATE) {
+    if (s.employee_type === 'dean') return true;
+  }
+
+  return false;
 }
 
 /**

@@ -1,9 +1,5 @@
 <template>
-    <AppBar title="Acquisition Details">
-        <template #title-actions>
-            <v-btn text @click="goBack">Back</v-btn>
-        </template>
-    </AppBar>
+    <AppBar title="Acquisition Details" />
     <v-container>
         <StatusBanner 
             v-if="bannerMessage"
@@ -13,7 +9,7 @@
             class="mt-4"
         />
 
-        <v-card elevation="1" class="py-3" v-if="!isLoading">
+        <v-card elevation="0" class="py-3" v-if="!isLoading">
             <v-card-text>
                 <InfoTable 
                     title="Acquisition Details"
@@ -23,10 +19,22 @@
                     title="Book Details"
                     :fields="bookDetailsData"
                 />
-                <div class="mt-4">
-                    <v-btn color="primary" @click="editAcquisition">Edit</v-btn>
-                    <v-btn text @click="goBack" class="ml-2">Back</v-btn>
-                </div>
+                <v-row class="mt-4" justify="end">
+                    <v-btn
+                        variant="outlined"
+                        class="mr-2 bg-white text-primary"
+                        @click="goBack"
+                    >
+                        Back
+                    </v-btn>
+                    <v-btn
+                        v-if="canEdit"
+                        color="primary"
+                        @click="editAcquisition"
+                    >
+                        Edit
+                    </v-btn>
+                </v-row>
             </v-card-text>
         </v-card>
 
@@ -45,6 +53,7 @@ import StatusBanner from '@/components/StatusBanner.vue'
 import InfoTable from '@/components/InfoTable.vue'
 import { getAcquisition } from '@/services/acquisition'
 import { subscribeToActions, waitForEchoConnection } from '@/services/realtime'
+import { ACTIONS, can as canCheck } from '@/services/permission'
 
 export default {
     name: 'view-acquisition-details',
@@ -61,6 +70,7 @@ export default {
             bannerMessage: '',
             bannerType: 'success',
             acquisition: null,
+            canEdit: canCheck(ACTIONS.EDIT),
         }
     },
     computed: {
@@ -70,10 +80,10 @@ export default {
             return [
                 { label: 'Title', value: this.acquisition.title },
                 { label: 'Author', value: this.acquisition.author },
-                { label: 'Edition', value: this.acquisition.edition || 'N/A' },
-                { label: 'ISBN', value: this.acquisition.isbn || 'N/A' },
-                { label: 'Publisher', value: this.acquisition.publisher || 'N/A' },
-                { label: 'Place of Publication', value: this.acquisition.place_of_publication || 'N/A' },
+                { label: 'Edition', value: this.acquisition.edition },
+                { label: 'ISBN', value: this.acquisition.isbn },
+                { label: 'Publisher', value: this.acquisition.publisher },
+                { label: 'Place of Publication', value: this.acquisition.place_of_publication },
                 { label: 'Year of Publication', value: this.acquisition.year_of_publication },
             ]
         },
@@ -96,10 +106,10 @@ export default {
                 },
                 { label: 'Quantity Requested', value: this.acquisition.quantity_requested },
                 { label: 'Acquisition Method', value: this.formatMethod(this.acquisition.acquisition_method) },
-                { label: 'Supplier Name', value: this.acquisition.supplier_name || 'N/A' },
-                { label: 'Cost', value: this.acquisition.cost ? `₱${this.acquisition.cost.toFixed(2)}` : 'N/A' },
-                { label: 'Date Acquired', value: this.acquisition.date_acquired || 'N/A' },
-                { label: 'Quantity Acquired', value: this.acquisition.quantity_acquired || 'N/A' },
+                { label: 'Supplier Name', value: this.acquisition.supplier_name },
+                { label: 'Cost', value: this.acquisition.cost ? `₱${this.acquisition.cost.toFixed(2)}` : null },
+                { label: 'Date Acquired', value: this.acquisition.date_acquired },
+                { label: 'Quantity Acquired', value: this.acquisition.quantity_acquired },
                 { label: 'Status', value: this.acquisition.acquisition_status },
             ]
         }

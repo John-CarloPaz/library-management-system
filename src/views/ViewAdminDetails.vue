@@ -2,12 +2,7 @@
     <v-container>
         <v-row>
             <v-col cols="12">
-                <AppBar :title="`Admin Details`">
-                    <template #title-actions>
-                        <v-btn text @click="goBack">Back</v-btn>
-                        <v-btn color="primary" @click="editAdmin" :disabled="isLoading">Edit</v-btn>
-                    </template>
-                </AppBar>
+                <AppBar :title="`Admin Details`" />
 
                 <!-- Status Banner -->
                 <StatusBanner 
@@ -18,13 +13,36 @@
                     class="mt-4"
                 />
 
-                <v-progress-linear v-if="isLoading" indeterminate></v-progress-linear>
+                <v-card elevation="0" class="py-3" v-if="!isLoading">
+                    <v-card-text>
+                        <InfoTable 
+                            title="Admin Information"
+                            :fields="adminFieldsData"
+                        />
 
-                <InfoTable 
-                    title="Admin Information"
-                    :fields="adminFieldsData"
-                    v-if="!isLoading"
-                />
+                        <v-row class="mt-4" justify="end">
+                            <v-btn
+                                variant="outlined"
+                                class="mr-2 bg-white text-primary"
+                                @click="goBack"
+                            >
+                                Back
+                            </v-btn>
+                            <v-btn
+                                color="primary"
+                                @click="editAdmin"
+                            >
+                                Edit
+                            </v-btn>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+
+                <v-card elevation="1" v-if="isLoading" class="py-3">
+                    <v-card-text>
+                        <v-progress-linear indeterminate></v-progress-linear>
+                    </v-card-text>
+                </v-card>
             </v-col>
         </v-row>
     </v-container>
@@ -37,6 +55,7 @@ import StatusBanner from '@/components/StatusBanner.vue';
 import InfoTable from '@/components/InfoTable.vue';
 import { getAdmin } from '@/services/admin';
 import { getBranch } from '@/services/branch';
+import { getSession } from '@/services/auth'
 
 export default {
     name: 'ViewAdminDetails',
@@ -47,6 +66,7 @@ export default {
             adminId: null,
             bannerMessage: '',
             bannerType: 'success',
+            session: null,
             admin: {
                 id: '',
                 username: '',
@@ -65,6 +85,12 @@ export default {
         };
     },
     mounted() {
+        try {
+            this.session = getSession() || null
+        } catch (e) {
+            this.session = null
+        }
+
         this.adminId = this.$route.params.id;
         // Check if coming from successful update
         if (this.$route.query.success) {
@@ -76,10 +102,40 @@ export default {
         }
     },
     methods: {
+        isBranchAdmin() {
+            const role = this.session && this.session.role ? String(this.session.role).toLowerCase() : ''
+            return role === 'branch_admin'
+        },
+        sessionBranchId() {
+            const raw = this.session && this.session.branch_id != null ? this.session.branch_id : null
+            const n = raw != null ? Number(raw) : null
+            return Number.isFinite(n) ? n : raw
+        },
+        canAccessAdminRecord(admin) {
+            const role = this.session && this.session.role ? String(this.session.role).toLowerCase() : ''
+            if (role === 'super_admin') return true
+            if (role !== 'branch_admin') return false
+
+            if (!admin) return false
+            if (admin.role === 'super_admin') return false
+            const branchId = this.sessionBranchId()
+            if (branchId == null) return false
+            return Number(admin.branch_id) === Number(branchId)
+        },
         async loadAdmin() {
             this.isLoading = true;
             try {
                 const admin = await getAdmin(this.adminId);
+
+                if (!this.canAccessAdminRecord(admin)) {
+                    this.bannerType = 'error'
+                    this.bannerMessage = 'Permission denied. You can only view admins under your own branch.'
+                    setTimeout(() => {
+                        this.$router.push({ name: 'admin-management' });
+                    }, 900)
+                    return
+                }
+
                 this.admin = admin;
 
                 // Resolve branch name for display
@@ -99,12 +155,8 @@ export default {
             } catch (error) {
                 console.error('Failed to load admin:', error);
                 this.branchName = '';
-                this.dialog = {
-                    visible: true,
-                    title: 'Load Failed',
-                    message: 'Failed to load admin: ' + (error.message || 'Unknown error'),
-                    isError: true,
-                };
+                this.bannerType = 'error'
+                this.bannerMessage = 'Failed to load admin. Please try again.'
                 setTimeout(() => {
                     this.$router.push({ name: 'admin-management' });
                 }, 2000);
@@ -116,6 +168,11 @@ export default {
             try { this.$router.back(); } catch (e) { console.warn('Failed to navigate back', e); }
         },
         editAdmin() {
+            if (!this.canAccessAdminRecord(this.admin)) {
+                this.bannerType = 'error'
+                this.bannerMessage = 'Permission denied. You can only edit admins under your own branch.'
+                return
+            }
             this.$router.push({ name: 'edit-admin', params: { id: this.adminId } });
         },
     },

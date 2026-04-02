@@ -14,7 +14,12 @@
                         >
                             {{ formatValue(field.value) ?? '-' }}
                         </a>
-                        <span v-else>{{ formatValue(field.value) ?? '-' }}</span>
+                        <span
+                            v-else
+                            :class="{ 'null-muted': field.value === null || field.value === undefined || field.value === '' }"
+                        >
+                            {{ formatValue(field.value) ?? '-' }}
+                        </span>
                     </td>
                 </tr>
             </tbody>
@@ -42,7 +47,8 @@ export default {
     },
     methods: {
         formatValue(val) {
-            if (!val) return '';
+            // Explicitly treat null/undefined/empty-string as NULL sentinel
+            if (val === null || val === undefined || val === '') return 'NULL';
             
             // Format date fields
             if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}/)) {
@@ -96,5 +102,10 @@ tbody tr:last-child td {
 
 .link-text:hover {
     text-decoration: underline;
+}
+
+.null-muted {
+    color: #9e9e9e;
+    font-style: italic;
 }
 </style>

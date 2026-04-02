@@ -5,14 +5,16 @@
         </template>
     </AppBar>
     <v-container>
-        <v-card elevation="1" class="py-3">
+        <v-card elevation="0" class="py-3">
             <v-card-text>
                 <v-progress-linear v-if="isLoading" indeterminate></v-progress-linear>
 
                 <v-form ref="formRef" @submit.prevent="onSubmit" v-if="!isLoading">
-                    
-                                        <!-- Title and Author row -->
-                    <v-row>
+                    <p class="text-subtitle-1 font-weight-semibold">Book Information</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
+                    <!-- Title and Author row -->
+                    <v-row dense>
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.title" label="Title" 
                                 :error-messages="errors.title"
@@ -26,7 +28,7 @@
                     </v-row>
 
                     <!-- Edition and ISBN row -->
-                    <v-row>
+                    <v-row dense class="mb-4">
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.edition" label="Edition" 
                                 :error-messages="errors.edition" required variant="solo" />
@@ -37,8 +39,11 @@
                         </v-col>
                     </v-row>
 
+                    <p class="text-subtitle-1 font-weight-semibold">Publication Details</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Publisher and Year row -->
-                    <v-row>
+                    <v-row dense>
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.publisher" label="Publisher" 
                                 :error-messages="errors.publisher" required variant="solo" />
@@ -50,15 +55,22 @@
                     </v-row>
 
                     <!-- Place of Publication -->
-                    <v-row>
-                        <v-col cols="12">
+                    <v-row dense class="mb-4">
+                        <v-col cols="12" md="6">
                             <v-text-field v-model="form.place_of_publication" label="Place of Publication" 
                                 :error-messages="errors.place_of_publication" required variant="solo" />
                         </v-col>
+                        <v-col cols="12" md="6">
+                            <v-select v-model="form.branch_id" :items="branches" item-title="name" item-value="id"
+                                label="Branch" :error-messages="errors.branch_id" required variant="solo" menu-icon="fas fa-chevron-down" />
+                        </v-col>
                     </v-row>
 
+                    <p class="text-subtitle-1 font-weight-semibold">Classification</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Dewey and Cutter Number row -->
-                    <v-row>
+                    <v-row dense class="mb-4">
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.dewey" label="Dewey Classification" 
                                 type="text" inputmode="numeric" @input="form.dewey = form.dewey.replace(/[^\d]/g, '')"
@@ -71,9 +83,12 @@
                         </v-col>
                     </v-row>
 
+                    <p class="text-subtitle-1 font-weight-semibold">Call Number & Copies</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Call Number -->
-                    <v-row>
-                        <v-col cols="12">
+                    <v-row dense class="mb-4">
+                        <v-col cols="12" md="6">
                             <v-text-field v-model="form.call_number" label="Call Number" 
                                 type="text" inputmode="numeric" @input="form.call_number = form.call_number.replace(/[^\d]/g, '')"
                                 :error-messages="errors.call_number" required variant="solo" />
@@ -86,26 +101,28 @@
                     </v-row>
 
 
+                    <p class="text-subtitle-1 font-weight-semibold">Cataloging Status</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Cataloging Status -->
-                    <v-row>
-                        <v-col cols="12" md="6">
+                    <v-row dense>
+                        <v-col cols="12" md="12">
                             <v-select v-model="form.cataloging_status" :items="catalogingStatuses"
                                 label="Cataloging Status" :error-messages="errors.cataloging_status" 
-                                required variant="solo" />
+                                required variant="solo" menu-icon="fas fa-chevron-down" />
                         </v-col>
                     </v-row>
 
-                    <v-row>
-                        <v-col class="d-flex justify-end">
-                            <v-btn text @click="cancel" class="mr-3" :disabled="isSubmitting">Cancel</v-btn>
-                            <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">
-                                Create
-                            </v-btn>
-                        </v-col>
-                    </v-row>
-                </v-form>
+                    </v-form>
             </v-card-text>
         </v-card>
+
+        <v-row class="mt-4">
+            <v-col class="d-flex justify-end">
+                <v-btn text @click="cancel" class="mr-3" :disabled="isSubmitting">Cancel</v-btn>
+                <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">Create</v-btn>
+            </v-col>
+        </v-row>
     </v-container>
 
     <!-- Error Dialog -->
@@ -122,6 +139,8 @@
 import AppBar from '@/components/AppBar.vue'
 import ErrorDialog from '@/components/ErrorDialog.vue'
 import { createCatalogue, validateCatalogue } from '@/services/catalogue'
+import { listActiveBranchesCached } from '@/services/branch'
+import { getSession } from '@/services/auth'
 
 export default {
     name: 'create-catalogue',
@@ -149,6 +168,7 @@ export default {
                 dewey: '',
                 cutter_number: '',
                 call_number: '',
+                branch_id: null,
                 title: '',
                 author: '',
                 edition: '',
@@ -158,7 +178,23 @@ export default {
                 year_of_publication: null,
                 cataloging_status: 'pending',
             },
+            branches: [],
             errors: {},
+        }
+    },
+    async mounted() {
+        try {
+            const session = getSession()
+            if (session && session.role !== 'super_admin' && session.branch_id) {
+                const bid = Number(session.branch_id)
+                this.form.branch_id = Number.isFinite(bid) ? bid : session.branch_id
+            }
+        } catch (e) { /* ignore */ }
+
+        try {
+            this.branches = await listActiveBranchesCached()
+        } catch (e) {
+            this.branches = []
         }
     },
     methods: {
@@ -203,6 +239,7 @@ export default {
                     dewey: this.form.dewey || null,
                     cutter_number: this.form.cutter_number || null,
                     call_number: this.form.call_number || null,
+                    branch_id: this.form.branch_id ? Number(this.form.branch_id) : null,
                     title: this.form.title,
                     author: this.form.author,
                     edition: this.form.edition || null,
@@ -246,9 +283,7 @@ export default {
                 this.isSubmitting = false
             }
         },
-        cancel() {
-            this.$router.back()
-        },
+        
         showDialog(title, message, isError = false) {
             this.dialog = { visible: true, title, message, isError }
         },

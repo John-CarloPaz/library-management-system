@@ -85,15 +85,17 @@ async function fetchAdmins({ status, is_active, count = 'all', page, perPage } =
  * Paginated helper for server-side tables.
  * Returns an object with the current page of admins and the total count.
  */
-export async function fetchAdminsPage({ status, is_active, page = 1, itemsPerPage = 10 } = {}) {
-  const response = await getApi().get(API_ENDPOINTS.LIST, {
-    params: {
-      status,
-      is_active,
-      page,
-      per_page: itemsPerPage,
-    },
-  })
+export async function fetchAdminsPage(opts = {}) {
+  const { page = 1, itemsPerPage = 10, status, is_active, ...rest } = opts || {}
+  const params = {
+    ...rest,
+    status,
+    is_active,
+    page,
+    per_page: itemsPerPage,
+  }
+
+  const response = await getApi().get(API_ENDPOINTS.LIST, { params })
 
   const payload = response.data || {}
 

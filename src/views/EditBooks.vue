@@ -9,19 +9,11 @@
                 </AppBar>
 
                 <!-- Status Banner -->
-                <StatusBanner 
-                    v-if="bannerMessage"
-                    :message="bannerMessage"
-                    :type="bannerType"
-                    @close="bannerMessage = ''"
-                />
+                <StatusBanner v-if="bannerMessage" :message="bannerMessage" :type="bannerType"
+                    @close="bannerMessage = ''" />
 
                 <!-- Book Information (Read-only) -->
-                <InfoTable 
-                    title="Book Information"
-                    :fields="bookFieldsData"
-                    :elevation="0"
-                />
+                <InfoTable title="Book Information" :fields="bookFieldsData" :elevation="0" />
 
                 <!-- Status Edit Form -->
                 <v-card class="mt-4 mb-4">
@@ -29,35 +21,21 @@
                     <v-card-text>
                         <v-row>
                             <v-col cols="12">
-                                <v-select
-                                    v-model="form.status"
-                                    label="Status"
-                                    :items="statusOptions"
-                                    item-title="text"
-                                    item-value="value"
-                                    variant="outlined"
-                                    density="comfortable"
-                                    required
-                                />
+                                <v-select v-model="form.status" label="Status" :items="statusOptions" item-title="text"
+                                    item-value="value" variant="outlined" density="comfortable" required
+                                    menu-icon="fas fa-chevron-down" />
                             </v-col>
                         </v-row>
 
                         <v-row class="mt-4">
                             <v-col cols="auto">
-                                <v-btn 
-                                    color="primary" 
-                                    @click="saveChanges"
-                                    :loading="saving"
-                                >
-                                    Save Changes
+                                <v-btn variant="outlined" @click="goBack">
+                                    Cancel
                                 </v-btn>
                             </v-col>
                             <v-col cols="auto">
-                                <v-btn 
-                                    variant="outlined"
-                                    @click="goBack"
-                                >
-                                    Cancel
+                                <v-btn color="primary" @click="saveChanges" :loading="saving">
+                                    Save Changes
                                 </v-btn>
                             </v-col>
                         </v-row>
@@ -68,13 +46,8 @@
     </v-container>
 
     <!-- Error Dialog -->
-    <ErrorDialog 
-        :visible.sync="dialog.visible" 
-        :title="dialog.title" 
-        :message="dialog.message" 
-        :isError="dialog.isError"
-        @update:visible="dialog.visible = $event"
-    />
+    <ErrorDialog :visible.sync="dialog.visible" :title="dialog.title" :message="dialog.message"
+        :isError="dialog.isError" @update:visible="dialog.visible = $event" />
 </template>
 
 <script>
@@ -109,7 +82,7 @@ export default {
             bannerMessage: '',
             bannerType: 'success',
             statusOptions: [
-                { value: 'available', text: 'Available' },
+                { value: 'active', text: 'Active' },
                 { value: 'for_archiving', text: 'For Archiving' },
                 { value: 'lost', text: 'Lost' },
                 { value: 'damaged', text: 'Damaged' },
@@ -132,7 +105,7 @@ export default {
                 { label: 'Edition', value: this.book.edition },
                 { label: 'ISBN', value: this.book.isbn },
                 { label: 'Call Number', value: this.book.call_number },
-                { label: 'Current Status', value: this.book.cataloging_status },
+                { label: 'Current Status', value: this.book.book_status },
             ];
         },
     },
@@ -145,8 +118,8 @@ export default {
                     this.$router.replace({ name: 'manage-books' });
                     return;
                 }
-                // Set initial form values
-                this.form.status = this.book.cataloging_status || 'available';
+                // Set initial form value from backend book_status
+                this.form.status = this.book.book_status || 'available';
             } catch (error) {
                 console.error('Error loading book:', error.message);
                 this.bannerMessage = 'Failed to load book details';
@@ -166,7 +139,7 @@ export default {
                 await editBookStatus(this.book.id, this.form.status);
                 this.bannerMessage = 'Book status updated successfully!';
                 this.bannerType = 'success';
-                
+
                 // Redirect to view page with success flag
                 setTimeout(() => {
                     this.$router.push({

@@ -45,7 +45,7 @@ export function getQrCodeUrl(qrCodePath) {
   }
   
   // Otherwise, prepend storage path
-  return `${apiUrl}/storage/${qrCodePath}`
+  return `${apiUrl}/public/storage/${qrCodePath}`
 }
 
 /**

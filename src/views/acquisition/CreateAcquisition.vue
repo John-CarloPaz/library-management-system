@@ -5,23 +5,26 @@
         </template>
     </AppBar>
     <v-container>
-        <v-card elevation="1" class="py-3">
+        <v-card elevation="0" class="py-3">
             <v-card-text>
                 <v-form ref="formRef" @submit.prevent="onSubmit">
+                    <p class="text-subtitle-1 font-weight-semibold">Book Information</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Title and Author row -->
-                    <v-row>
+                    <v-row dense>
                         <v-col cols="12" md="6">
-                            <v-text-field v-model="form.title" label="Title" :error-messages="errors.title"
-                                required variant="solo" />
+                            <v-text-field v-model="form.title" label="Title" :error-messages="errors.title" required
+                                variant="solo" />
                         </v-col>
                         <v-col cols="12" md="6">
-                            <v-text-field v-model="form.author" label="Author" :error-messages="errors.author"
-                                required variant="solo" />
+                            <v-text-field v-model="form.author" label="Author" :error-messages="errors.author" required
+                                variant="solo" />
                         </v-col>
                     </v-row>
 
                     <!-- Edition and ISBN row -->
-                    <v-row>
+                    <v-row dense class="mb-4">
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.edition" label="Edition" :error-messages="errors.edition"
                                 variant="solo" />
@@ -32,50 +35,53 @@
                         </v-col>
                     </v-row>
 
+                    <p class="text-subtitle-1 font-weight-semibold">Publication Details</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Publisher and Year row -->
-                    <v-row>
-                        <v-col cols="12" md="6">
+                    <v-row class="mb-4" dense>
+                        <v-col cols="12" md="4">
                             <v-text-field v-model="form.publisher" label="Publisher" :error-messages="errors.publisher"
                                 variant="solo" />
                         </v-col>
-                        <v-col cols="12" md="6">
+                        <v-col cols="12" md="4">
+                            <v-text-field v-model="form.place_of_publication" label="Place of Publication"
+                                :error-messages="errors.place_of_publication" variant="solo" />
+                        </v-col>
+                        <v-col cols="12" md="4">
                             <v-text-field v-model.number="form.year_of_publication" label="Year of Publication"
                                 type="number" :error-messages="errors.year_of_publication" required variant="solo" />
                         </v-col>
                     </v-row>
 
-                    <!-- Place of Publication -->
-                    <v-row>
-                        <v-col cols="12" md="6">
-                            <v-text-field v-model="form.place_of_publication" label="Place of Publication"
-                                :error-messages="errors.place_of_publication" variant="solo" />
-                        </v-col>
-                    </v-row>
+                    <p class="text-subtitle-1 font-weight-semibold">Acquisition Details</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
 
                     <!-- Branch Selection -->
-                    <v-row>
-                        <v-col cols="12" md="6">
+
+                    <!-- Quantity Requested and Method row -->
+                    <v-row class="mb-4" dense>
+                        <v-col cols="12" md="4">
                             <v-select v-model="form.branch_id" :items="branches" item-title="name" item-value="id"
                                 label="Branch" :error-messages="errors.branch_id" required variant="solo"
                                 :loading="isLoadingBranches" />
                         </v-col>
-                    </v-row>
-
-                    <!-- Quantity Requested and Method row -->
-                    <v-row>
-                        <v-col cols="12" md="6">
+                        <v-col cols="12" md="4">
                             <v-text-field v-model.number="form.quantity_requested" label="Quantity Requested"
                                 type="number" :error-messages="errors.quantity_requested" required variant="solo" />
                         </v-col>
-                        <v-col cols="12" md="6">
+                        <v-col cols="12" md="4">
                             <v-select v-model="form.acquisition_method" :items="acquisitionMethods"
                                 label="Acquisition Method" :error-messages="errors.acquisition_method" required
                                 variant="solo" />
                         </v-col>
                     </v-row>
 
+                    <p class="text-subtitle-1 font-weight-semibold">Supplier & Cost</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- Supplier Name and Cost row -->
-                    <v-row>
+                    <v-row class="mb-4" dense>
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.supplier_name" label="Supplier Name"
                                 :error-messages="errors.supplier_name" variant="solo" />
@@ -87,46 +93,36 @@
                     </v-row>
 
                     <!-- Date Acquired and Status row -->
-                    <v-row>
-                        <v-col cols="12" md="6">
-                            <v-text-field v-model="form.date_acquired" label="Date Acquired" type="date"
-                                :error-messages="errors.date_acquired" variant="solo" />
-                        </v-col>
-                        <v-col cols="12" md="6">
-                            <v-select v-model="form.acquisition_status" :items="acquisitionStatus"
-                                label="Status" :error-messages="errors.acquisition_status" required variant="solo" />
-                        </v-col>
-                    </v-row>
-
-                    <!-- Quantity Acquired -->
-                    <v-row>
-                        <v-col cols="12" md="6">
+                    <v-row dense>
+                        <v-col cols="12" md="3">
                             <v-text-field v-model.number="form.quantity_acquired" label="Quantity Acquired"
                                 type="number" :error-messages="errors.quantity_acquired" variant="solo" />
                         </v-col>
-                    </v-row>
-
-                    <v-row>
-                        <v-col class="d-flex justify-end">
-                            <v-btn text @click="cancel" class="mr-3" :disabled="isSubmitting">Cancel</v-btn>
-                            <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">
-                                Create
-                            </v-btn>
+                        <v-col cols="12" md="3">
+                            <v-text-field v-model="form.date_acquired" label="Date Acquired" type="date"
+                                :error-messages="errors.date_acquired" variant="solo" append-inner-icon="fa-calendar" />
+                        </v-col>
+                        <v-col cols="12" md="6">
+                            <v-select v-model="form.acquisition_status" :items="acquisitionStatus" label="Status"
+                                :error-messages="errors.acquisition_status" required variant="solo" />
                         </v-col>
                     </v-row>
+
                 </v-form>
             </v-card-text>
         </v-card>
+
+        <v-row class="mt-4">
+            <v-col class="d-flex justify-end">
+                <v-btn text @click="cancel" class="mr-3" :disabled="isSubmitting">Cancel</v-btn>
+                <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">Create</v-btn>
+            </v-col>
+        </v-row>
     </v-container>
 
     <!-- Error Dialog -->
-    <ErrorDialog 
-        :visible.sync="dialog.visible" 
-        :title="dialog.title" 
-        :message="dialog.message" 
-        :isError="dialog.isError"
-        @update:visible="dialog.visible = $event"
-    />
+    <ErrorDialog :visible.sync="dialog.visible" :title="dialog.title" :message="dialog.message"
+        :isError="dialog.isError" @update:visible="dialog.visible = $event" />
 </template>
 
 <script>
@@ -191,10 +187,10 @@ export default {
             try {
                 this.branches = await listActiveBranches()
                 console.log('Raw branches from API:', this.branches)
-                
+
                 const session = getSession()
                 console.log('Current session:', session)
-                
+
                 if (session && session.branch_id) {
                     // Ensure branch_id is a number
                     const branchId = Number(session.branch_id)
@@ -203,7 +199,7 @@ export default {
                 } else {
                     console.warn('No branch_id in session')
                 }
-                
+
                 console.log('Branches loaded:', this.branches)
                 console.log('Form branch_id after load:', this.form.branch_id, 'type:', typeof this.form.branch_id)
             } catch (error) {

@@ -54,12 +54,12 @@ export default {
         ];
       }
 
-      // Student routes: make sure the "Students" crumb points to /student-management
+      // Student routes: make sure the "Students" crumb points to /member-management
       // Example: Home > Students > View 122301429
       if (route.name === 'view-student' || route.name === 'edit-student' || route.name === 'create-student') {
         const crumbs = [
           { text: 'Home', to: '/' },
-          { text: 'Students', to: '/student-management' },
+          { text: 'Students', to: '/member-management' },
         ];
 
         if (route.name === 'create-student') {

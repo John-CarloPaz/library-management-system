@@ -156,7 +156,16 @@ export async function listArchivedStudents({ forceRefresh = false } = {}) {
 export async function getStudentByNumber(studentNumber) {
   try {
     const response = await getAxiosInstance().get(`${BASE_URL}/view/${studentNumber}`)
-    return response.data
+    let data = response.data || {}
+
+    // Normalize different backend response shapes
+    if (data.student && typeof data.student === 'object') {
+      data = data.student
+    } else if (data.data && typeof data.data === 'object') {
+      data = data.data
+    }
+
+    return data
   } catch (error) {
     console.error(`Failed to get student ${studentNumber}:`, error.response?.data || error.message)
     throw error

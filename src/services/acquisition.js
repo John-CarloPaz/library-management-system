@@ -16,39 +16,18 @@ const API_ENDPOINTS = {
 }
 
 /**
- * Internal helper to fetch acquisitions via unified list endpoint.
- * Supports ListQueryService params: status, archived, active, count, page, per_page.
- */
-async function fetchAcquisitions({ status, archived, active, count = 'all', page, perPage } = {}) {
-  const response = await getAxiosInstance().get(API_ENDPOINTS.LIST, {
-    params: {
-      status,
-      archived,
-      active,
-      count,
-      page,
-      per_page: perPage,
-    },
-  })
-
-  let data = response.data
-
-  if (data.acquisitions && Array.isArray(data.acquisitions)) {
-    data = data.acquisitions
-  } else if (data.data && Array.isArray(data.data)) {
-    data = data.data
-  } else if (!Array.isArray(data)) {
-    data = []
-  }
-
-  return data
-}
-
-/**
  * Paginated helper for server-side tables.
  * Returns an object with the current page of acquisitions and the total count.
  */
 export async function fetchAcquisitionsPage({ status, archived, active, page = 1, itemsPerPage = 10 } = {}) {
+  console.log('[Acquisition] fetchAcquisitionsPage request params:', {
+    status,
+    archived,
+    active,
+    page,
+    itemsPerPage,
+  })
+
   const response = await getAxiosInstance().get(API_ENDPOINTS.LIST, {
     params: {
       status,
@@ -60,6 +39,8 @@ export async function fetchAcquisitionsPage({ status, archived, active, page = 1
   })
 
   const payload = response.data || {}
+
+  console.log('[Acquisition] fetchAcquisitionsPage raw payload:', payload)
 
   let rows = []
   let total = 0
@@ -85,6 +66,11 @@ export async function fetchAcquisitionsPage({ status, archived, active, page = 1
   if (!total) {
     total = items.length
   }
+
+   console.log('[Acquisition] fetchAcquisitionsPage normalized result:', {
+    itemsCount: Array.isArray(items) ? items.length : 0,
+    total,
+  })
 
   return { items, total }
 }

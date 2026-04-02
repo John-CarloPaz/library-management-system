@@ -5,15 +5,23 @@
  */
 export function getQrCodeUrl(qrCodePath) {
   if (!qrCodePath) return '';
-  
+
+  const asString = String(qrCodePath).trim();
+
+  // If the backend already returned a full URL, return as-is
+  if (asString.startsWith('http://') || asString.startsWith('https://')) return asString;
+
   const origin = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
-  const baseUrl = `${origin}/storage/`;
-  let path = qrCodePath;
-  
-  // Remove /api/ from anywhere in the path
-  path = path.replace('/api/', '');
-  
-  return baseUrl + path;
+  const baseUrl = `${origin}/public/storage/`;
+
+  // Normalize the incoming path: strip leading slashes and common prefixes
+  let normalized = asString.replace(/^\/+/, '');
+  normalized = normalized.replace(/^api\//, '');
+  normalized = normalized.replace(/^public\//, '');
+  normalized = normalized.replace(/^storage\//, '');
+  normalized = normalized.replace(/^public\/storage\//, '');
+
+  return baseUrl + normalized;
 }
 
 /**
@@ -80,6 +88,7 @@ function generatePrintHtml(books, catalogueTitle) {
     .map(book => {
       const qrUrl = book.qr_code ? getQrCodeUrl(book.qr_code) : '';
       const title = book.title || catalogueTitle;
+      const refNum = book.reference_number || '';
       const copyNum = book.copy_number || '';
       
       return `
@@ -89,7 +98,7 @@ function generatePrintHtml(books, catalogueTitle) {
           </div>
           <div class="qr-code-info">
             <p class="qr-title">${title}</p>
-            <p class="qr-copy">Copy ${copyNum}</p>
+            <p class="qr-copy">Copy# ${copyNum} | Ref# ${refNum}</p>
           </div>
         </div>
       `;

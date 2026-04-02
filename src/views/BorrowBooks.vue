@@ -21,24 +21,24 @@
 
                     <v-row>
                         <v-col cols="12">
-                            <v-autocomplete
-                                v-model="selectedBook"
-                                :items="books"
-                                item-title="title"
-                                item-value="bookCode"
-                                label="Select book (search or pick)"
-                                clearable
-                                return-object
-                                density="comfortable"
-                            >
-                                <template #item="{ props, item }">
-                                    <v-list-item
-                                        v-bind="props"
-                                        :title="item.raw.title"
-                                        :subtitle="item.raw.author"
+                            <v-row class="ga-2" align="center">
+                                <v-col>
+                                    <v-text-field
+                                        v-model="bookReferenceInput"
+                                        label="Reference number"
+                                        clearable
+                                        density="compact"
+                                        variant="solo-filled"
+                                        hide-details="auto"
+                                        @keyup.enter="searchBookByReference"
                                     />
-                                </template>
-                            </v-autocomplete>
+                                </v-col>
+                                <v-col cols="auto">
+                                    <v-btn color="primary" @click="searchBookByReference">
+                                        Find
+                                    </v-btn>
+                                </v-col>
+                            </v-row>
                         </v-col>
 
                         <v-col cols="12" class="mt-4">
@@ -86,27 +86,24 @@
 
                     <v-row>
                         <v-col cols="12">
-                            <v-autocomplete
-                                v-model="selectedStudent"
-                                :items="students"
-                                item-title="name"
-                                item-value="email"
-                                label="Select student (search or pick)"
-                                clearable
-                                return-object
-                                density="comfortable"
-                            >
-                                <template #item="{ props, item }">
-                                    <v-list-item v-bind="props">
-                                        <v-list-item-title class="font-weight-bold">
-                                            {{ item.raw.name }}
-                                        </v-list-item-title>
-                                        <v-list-item-subtitle class="text-grey">
-                                            {{ item.raw.email }}
-                                        </v-list-item-subtitle>
-                                    </v-list-item>
-                                </template>
-                            </v-autocomplete>
+                            <v-row class="ga-2" align="center">
+                                <v-col>
+                                    <v-text-field
+                                        v-model="studentIdInput"
+                                        label="Student ID or number"
+                                        clearable
+                                        density="compact"
+                                        variant="solo-filled"
+                                        hide-details="auto"
+                                        @keyup.enter="searchStudentById"
+                                    />
+                                </v-col>
+                                <v-col cols="auto">
+                                    <v-btn color="primary" @click="searchStudentById">
+                                        Find
+                                    </v-btn>
+                                </v-col>
+                            </v-row>
                         </v-col>
 
                         <v-col cols="12" class="mt-4">
@@ -231,7 +228,7 @@ import { QrcodeStream } from 'vue-qrcode-reader'
 import AppBar from '../components/AppBar.vue'
 import ErrorDialog from '../components/ErrorDialog.vue'
 import { borrowBook } from '../services/borrow.js'
-import { listBooks } from '@/services/book'
+import { listBooks, findBookByReference } from '@/services/book'
 import { listActiveStudents, getStudentByNumber } from '@/services/student'
 
 const router = useRouter()
@@ -281,7 +278,7 @@ async function loadBooksFromApi() {
         console.log('BorrowBooks loaded books from API:', books.value.length)
     } catch (error) {
         console.error('Failed to load books for borrowing:', error)
-        showDialog('Load Error', error.message || 'Failed to load books for borrowing.', true)
+        showDialog('Load Error', error, true)
     }
 }
 
@@ -309,6 +306,8 @@ const selectedBook = ref(null)
 const selectedStudent = ref(null)
 const lastScanned = ref('')
 const recentBorrows = ref([])
+const bookReferenceInput = ref('')
+const studentIdInput = ref('')
 
 const scannerOpen = ref(false)
 const scannerMode = ref('book')
@@ -418,7 +417,7 @@ function onScannerError(err) {
     cameraStatus.value = 'error'
 }
 
-function onDecode(content) {
+async function onDecode(content) {
     lastScanned.value = content && content.toString ? content.toString() : String(content)
     const mode = scannerMode.value
 
@@ -445,11 +444,39 @@ function onDecode(content) {
         candidates.push(text)
 
         let fb = null
-        for (const c of candidates) {
-            const cc = (c || '').toString().trim()
-            if (!cc) continue
-            fb = books.value.find(b => String(b.bookCode) === cc)
-            if (fb) break
+
+        // First try backend lookup using the standardized book/find endpoint
+        const tryRef = (candidates.find(Boolean) || '').toString().trim()
+        if (tryRef) {
+            try {
+                const apiBook = await findBookByReference(tryRef)
+                if (apiBook && apiBook.reference_number) {
+                    fb = {
+                        id: apiBook.id,
+                        title: apiBook.title || apiBook.catalogue?.title || '',
+                        author: apiBook.author || apiBook.catalogue?.author || '',
+                        publisher: apiBook.publisher || apiBook.catalogue?.publisher || '',
+                        yearOfProduction: apiBook.year_of_publication || apiBook.catalogue?.year_of_publication,
+                        edition: apiBook.edition || apiBook.catalogue?.edition,
+                        placeOfPublication: apiBook.place_of_publication || apiBook.catalogue?.place_of_publication,
+                        bookCode: apiBook.reference_number,
+                        notes: apiBook.catalogue?.notes || '',
+                    }
+                }
+            } catch (err) {
+                // backend lookup failed — fall back to local search below
+                console.debug('book find API lookup failed, falling back to local list', err && err.message)
+            }
+        }
+
+        // If backend didn't return a result, try local list matches
+        if (!fb) {
+            for (const c of candidates) {
+                const cc = (c || '').toString().trim()
+                if (!cc) continue
+                fb = books.value.find(b => String(b.bookCode) === cc)
+                if (fb) break
+            }
         }
 
         // fallback: check if the scanned text contains any known bookCode / reference_number substring
@@ -485,6 +512,24 @@ function onDecode(content) {
         for (const c of candidates) {
             const cc = (c || '').toString().trim()
             if (!cc) continue
+
+            // First try resolving the candidate via backend student lookup
+            try {
+                const apiStudent = await getStudentByNumber(cc)
+                if (apiStudent && (apiStudent.id || apiStudent.student_id)) {
+                    fs = {
+                        id: apiStudent.id,
+                        name: [apiStudent.first_name, apiStudent.middle_name, apiStudent.last_name, apiStudent.suffix].filter(Boolean).join(' ') || apiStudent.name || '',
+                        email: apiStudent.email || '',
+                        studentId: apiStudent.student_id || apiStudent.studentId || cc,
+                        status: apiStudent.status || '',
+                    }
+                    break
+                }
+            } catch (err) {
+                // ignore API failure and fall back to local list
+            }
+
             fs = students.value.find(s =>
                 (s.email && String(s.email).toLowerCase() === cc.toLowerCase()) ||
                 String(s.id) === cc ||
@@ -535,8 +580,77 @@ function showDialog(title, message, isError = false) {
     }
 }
 
+async function searchBookByReference() {
+    const refVal = (bookReferenceInput.value || '').toString().trim()
+    if (!refVal) {
+        showDialog('Validation', 'Reference number is required to search.', true)
+        return
+    }
+
+    try {
+        const apiBook = await findBookByReference(refVal)
+        if (apiBook && apiBook.reference_number) {
+            const fb = {
+                id: apiBook.id,
+                title: apiBook.title || apiBook.catalogue?.title || '',
+                author: apiBook.author || apiBook.catalogue?.author || '',
+                publisher: apiBook.publisher || apiBook.catalogue?.publisher || '',
+                yearOfProduction: apiBook.year_of_publication || apiBook.catalogue?.year_of_publication,
+                edition: apiBook.edition || apiBook.catalogue?.edition,
+                placeOfPublication: apiBook.place_of_publication || apiBook.catalogue?.place_of_publication,
+                bookCode: apiBook.reference_number,
+                notes: apiBook.catalogue?.notes || '',
+            }
+            selectedBook.value = fb
+            // close scanner if open
+            scannerOpen.value = false
+            cameraStatus.value = 'stopped'
+            return
+        }
+
+        showDialog('Not found', `No book found for reference ${refVal}`, true)
+    } catch (err) {
+        console.error('Book lookup failed:', err)
+        showDialog('Lookup Error', err?.response?.data?.message || err.message || 'Failed to lookup book', true)
+    }
+}
+
+async function searchStudentById() {
+    const idVal = (studentIdInput.value || '').toString().trim()
+    if (!idVal) {
+        showDialog('Validation', 'Student ID is required to search.', true)
+        return
+    }
+
+    try {
+        const apiStudent = await getStudentByNumber(idVal)
+        if (apiStudent && (apiStudent.id || apiStudent.student_id)) {
+            const st = {
+                id: apiStudent.id,
+                name: [apiStudent.first_name, apiStudent.middle_name, apiStudent.last_name, apiStudent.suffix].filter(Boolean).join(' ') || apiStudent.name || '',
+                email: apiStudent.email || '',
+                studentId: apiStudent.student_id || apiStudent.studentId || idVal,
+                status: apiStudent.status || '',
+            }
+            selectedStudent.value = st
+            // close scanner if open
+            scannerOpen.value = false
+            cameraStatus.value = 'stopped'
+            return
+        }
+
+        showDialog('Not found', `No student found for ID ${idVal}`, true)
+    } catch (err) {
+        console.error('Student lookup failed:', err)
+        showDialog('Lookup Error', err?.response?.data?.message || err.message || 'Failed to lookup student', true)
+    }
+}
+
 async function confirmBorrow() {
     if (!canBorrow.value) return
+
+    const bookSnapshot = selectedBook.value
+    const studentSnapshot = selectedStudent.value
     
     isBorrowing.value = true
     
@@ -586,24 +700,36 @@ async function confirmBorrow() {
         const result = await borrowBook(payload)
         
         // Add to recent borrows display
-        const record = {
-            book: selectedBook.value,
-            student: selectedStudent.value,
-            date: new Date().toLocaleString(),
-            duration: borrowDuration.value
+        const bookForRecord = selectedBook.value || bookSnapshot
+        const studentForRecord = selectedStudent.value || studentSnapshot
+        if (bookForRecord && studentForRecord) {
+            const record = {
+                book: { ...bookForRecord },
+                student: { ...studentForRecord },
+                date: new Date().toLocaleString(),
+                duration: borrowDuration.value
+            }
+            recentBorrows.value.unshift(record)
         }
-        recentBorrows.value.unshift(record)
         
         // Reset form
         selectedBook.value = null
-        selectedStudent.value = null
-        borrowDuration.value = 14
+        bookReferenceInput.value = ''
+        // Keep selectedStudent so multiple books can be borrowed for the same student.
+        // Student details will only change when a new student QR is scanned or a new lookup is performed.
+        // borrowDuration is intentionally preserved.
         
         console.log('Borrow successful:', result)
     } catch (error) {
         console.error('Borrow failed:', error)
-        showDialog('Borrow Error', error.message || 'Failed to borrow book', true)
+        showDialog('Borrow Error', error, true)
     } finally {
+        // Defensive: if anything cleared the selected student during the borrow action,
+        // restore it so staff can borrow multiple books without re-scanning.
+        if (!selectedStudent.value && studentSnapshot) {
+            selectedStudent.value = studentSnapshot
+        }
+
         isBorrowing.value = false
     }
 }

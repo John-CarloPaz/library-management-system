@@ -5,13 +5,16 @@
         </template>
     </AppBar>
     <v-container>
-        <v-card elevation="1" class="py-3">
+        <v-card elevation="0" class="py-3">
             <v-card-text>
                 <v-progress-linear v-if="isLoading" indeterminate></v-progress-linear>
                 
                 <v-form ref="formRef" @submit.prevent="onSubmit" v-if="!isLoading">
+    
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <!-- First row: First, Last, Middle, Suffix -->
-                    <v-row>
+                    <v-row class="mb-4" dense>
                         <v-col cols="12" md="3">
                             <v-text-field v-model="form.first_name" label="First Name"
                                 :error-messages="errors.first_name" required variant="solo" />
@@ -31,7 +34,7 @@
                     </v-row>
 
                     <!-- Username and Employee ID row -->
-                    <v-row>
+                    <v-row class="mb-4" dense>
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.username" label="Username" :error-messages="errors.username"
                                 required variant="solo" />
@@ -43,33 +46,39 @@
                         </v-col>
                     </v-row>
 
-                    <!-- Email row -->
-                    <v-row>
+                    <p class="text-subtitle-1 font-weight-semibold">Email and Account</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+                    <v-row class="mb-4" dense>
                         <v-col cols="12" md="6">
                             <v-text-field v-model="form.email" label="Email" :error-messages="errors.email" required
                                 variant="solo" />
                         </v-col>
                         <v-col cols="12" md="6">
-                            <v-select v-model="form.role" :items="roleItems" label="Role" :error-messages="errors.role"
-                                required variant="solo" />
+                            <v-text-field v-model="form.password" label="Password" type="password" :error-messages="errors.password"
+                                variant="solo" hint="Leave blank to keep current password" persistent-hint />
                         </v-col>
                     </v-row>
 
-                    <!-- Role and Branch ID row -->
+                    <p class="text-subtitle-1 font-weight-semibold">Employment</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
                     <v-row>
                         <v-col cols="12" md="6">
-                            <v-select v-model="form.branch_id" :items="branchItems" label="Branch"
-                                :error-messages="errors.branch_id" required variant="solo" />
+                            <v-select v-model="form.role" :items="roleItems" label="Role" :error-messages="errors.role"
+                                required variant="solo" :disabled="isBranchAdmin" />
                         </v-col>
+                        <v-col cols="12" md="6">
+                            <v-select v-model="form.branch_id" :items="branchItems" label="Branch"
+                                :error-messages="errors.branch_id" required variant="solo" :disabled="isBranchAdmin" />
+                        </v-col>
+                    </v-row>
+
+                    <!-- Employee Type and Status row -->
+                    <v-row>
                         <v-col cols="12" md="6">
                             <v-select v-model="form.employee_type" :items="employeeTypeItems" label="Employee Type"
                                 :error-messages="errors.employee_type" required variant="solo" />
                         </v-col>
-                    </v-row>
-
-                    <!-- Employee Type row -->
-                    <v-row>
-                        <v-col>
+                        <v-col cols="12" md="6">
                             <v-select v-model="form.is_active" :items="statusItems" label="Status"
                                 :error-messages="errors.is_active" required variant="solo" />
                         </v-col>
@@ -77,14 +86,6 @@
 
                     <v-row>
                         <v-col class="d-flex justify-end">
-                            <v-btn text @click="cancel" class="mr-3" :disabled="isSubmitting">Cancel</v-btn>
-                            <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">Update</v-btn>
-                        </v-col>
-                    </v-row>
-
-                    <!-- Reset Password Button -->
-                    <v-row>
-                        <v-col cols="12">
                             <v-btn 
                                 color="warning" 
                                 variant="outlined"
@@ -93,8 +94,12 @@
                                 :disabled="isSubmitting || isResetting">
                                 Reset Password to Default
                             </v-btn>
+                            <v-btn text @click="cancel" class="mx-3" :disabled="isSubmitting">Cancel</v-btn>
+                            <v-btn color="primary" @click="onSubmit" :loading="isSubmitting" :disabled="isSubmitting">Update</v-btn>
                         </v-col>
                     </v-row>
+
+                
                 </v-form>
             </v-card-text>
         </v-card>
@@ -108,12 +113,29 @@
         :isError="dialog.isError"
         @update:visible="dialog.visible = $event"
     />
+
+    <!-- Confirm Dialog for Reset Password -->
+    <v-dialog v-model="confirmDialog.visible" max-width="480px">
+        <v-card>
+            <v-card-title class="text-h6">{{ confirmDialog.title }}</v-card-title>
+            <v-card-text>
+                <div>{{ confirmDialog.message }}</div>
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer />
+                <v-btn variant="text" @click="confirmDialog.visible = false">Cancel</v-btn>
+                <v-btn color="error" @click="resetPasswordConfirmed" :loading="isResetting">Reset</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
 
 <script>
 import AppBar from '@/components/AppBar.vue';
 import ErrorDialog from '@/components/ErrorDialog.vue';
 import { getAdmin, updateAdmin, validateAdmin } from '@/services/admin'
+import { listActiveBranches } from '@/services/branch'
+import { getSession } from '@/services/auth'
 
 export default {
     name: 'edit-admin',
@@ -123,14 +145,24 @@ export default {
             isLoading: false,
             isSubmitting: false,
             isResetting: false,
+            session: null,
+            isBranchAdmin: false,
+            sessionBranchId: null,
+            originalRole: null,
+            originalBranchId: null,
             dialog: {
                 visible: false,
                 title: '',
                 message: '',
                 isError: false,
             },
+            confirmDialog: {
+                visible: false,
+                title: '',
+                message: '',
+            },
             adminId: null,
-            branchItems: [1, 2, 3, 4, 5].map(n => ({ value: n, title: `Branch ${n}` })),
+            branchItems: [],
             roleItems: [
                 { value: 'super_admin', title: 'Super Admin' },
                 { value: 'branch_admin', title: 'Branch Admin' },
@@ -164,16 +196,59 @@ export default {
         }
     },
     mounted() {
+        try {
+            this.session = getSession() || null
+            const role = this.session && this.session.role ? String(this.session.role).toLowerCase() : ''
+            this.isBranchAdmin = role === 'branch_admin'
+            const rawBranch = this.session && this.session.branch_id != null ? this.session.branch_id : null
+            const n = rawBranch != null ? Number(rawBranch) : null
+            this.sessionBranchId = Number.isFinite(n) ? n : rawBranch
+        } catch (e) {
+            this.session = null
+            this.isBranchAdmin = false
+            this.sessionBranchId = null
+        }
+
         this.adminId = this.$route.params.id
         if (this.adminId) {
             this.loadAdmin()
         }
+        this.loadBranches()
     },
     methods: {
+        async loadBranches() {
+            try {
+                const branches = await listActiveBranches()
+                this.branchItems = Array.isArray(branches)
+                    ? branches.map(b => ({ value: b.id, title: b.name }))
+                    : []
+            } catch (e) {
+                console.error('Failed to load branches:', e)
+                this.branchItems = []
+            }
+        },
         async loadAdmin() {
             this.isLoading = true
             try {
                 const admin = await getAdmin(this.adminId)
+
+                // Branch admin hard-guard: only allow editing admins in own branch; never allow editing super_admin.
+                if (this.isBranchAdmin) {
+                    if (admin && admin.role === 'super_admin') {
+                        this.showDialog('Permission Denied', 'You cannot edit a super admin account.', true)
+                        setTimeout(() => this.$router.push({ name: 'admin-management' }), 800)
+                        return
+                    }
+                    if (this.sessionBranchId != null && Number(admin.branch_id) !== Number(this.sessionBranchId)) {
+                        this.showDialog('Permission Denied', 'You can only edit admins under your own branch.', true)
+                        setTimeout(() => this.$router.push({ name: 'admin-management' }), 800)
+                        return
+                    }
+                }
+
+                this.originalRole = admin.role || null
+                this.originalBranchId = admin.branch_id || null
+
                 // Populate form with admin data
                 this.form = {
                     username: admin.username || '',
@@ -246,8 +321,8 @@ export default {
                     middle_name: this.form.middle_name || null,
                     suffix: this.form.suffix || null,
                     employee_id: this.form.employee_id || null,
-                    role: this.form.role,
-                    branch_id: this.form.branch_id,
+                    role: this.isBranchAdmin ? this.originalRole : this.form.role,
+                    branch_id: this.isBranchAdmin ? this.originalBranchId : this.form.branch_id,
                     employee_type: this.form.employee_type,
                     is_active: this.form.is_active,
                 }
@@ -292,10 +367,16 @@ export default {
                 this.isSubmitting = false
             }
         },
-        async resetPassword() {
-            const confirmed = window.confirm('Reset password to default (SPCF@40)?')
-            if (!confirmed) return
+        resetPassword() {
+            this.confirmDialog = {
+                visible: true,
+                title: 'Confirm Password Reset',
+                message: 'Reset password to default (LIB@SPCF)?',
+            }
+        },
 
+        async resetPasswordConfirmed() {
+            this.confirmDialog.visible = false
             this.isResetting = true
             try {
                 // Update admin with default password
@@ -307,11 +388,11 @@ export default {
                     middle_name: this.form.middle_name || null,
                     suffix: this.form.suffix || null,
                     employee_id: this.form.employee_id || null,
-                    role: this.form.role,
-                    branch_id: this.form.branch_id,
+                    role: this.isBranchAdmin ? this.originalRole : this.form.role,
+                    branch_id: this.isBranchAdmin ? this.originalBranchId : this.form.branch_id,
                     employee_type: this.form.employee_type,
                     is_active: this.form.is_active,
-                    password: 'SPCF@040', // Reset to default password
+                    password: 'LIB@SPCF', // Reset to default password
                 }
 
                 await updateAdmin(this.adminId, updateData)
@@ -329,15 +410,17 @@ export default {
                 }, 1500)
             } catch (error) {
                 console.error('Failed to reset password:', error)
-                this.showDialog('Password Reset Failed', 'Error: ' + (error.message || 'Unknown error'), true)
+                const serverMsg = error?.response?.data?.message || (error?.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(' ') : null)
+                const message = serverMsg || (typeof error?.response?.data === 'string' ? error.response.data : error.message || 'Unknown error')
+                this.showDialog('Password Reset Failed', message, true)
             } finally {
                 this.isResetting = false
             }
         },
         showDialog(title, message, isError = false) {
             this.dialog = { visible: true, title, message, isError }
-        },
-    },
+        }
+    }
 }
 </script>
 

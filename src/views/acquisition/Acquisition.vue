@@ -3,7 +3,7 @@
         <template #search-actions>
             <div>
                 <v-text-field density="compact" v-model="filters.search" label="Search Function ID" variant="solo-filled"
-                    hide-details="auto" @input="applyFilters" style="max-width:360px;" />
+                    hide-details="auto" @input="applyFilters" style="max-width:360px;" prepend-inner-icon="fas fa-magnifying-glass" />
             </div>
         </template>
 
@@ -35,9 +35,28 @@
                 >
                     <template #actions="{ item }">
                         <v-btn icon="fa-eye" size="x-small" variant="plain" @click.stop="viewAcquisition(item)"></v-btn>
-                        <v-btn icon="fa-pencil" size="x-small" variant="plain" @click.stop="editAcquisition(item)"></v-btn>
-                        <v-btn v-if="scope === 'active'" icon="fa-box-archive" size="x-small" variant="plain" @click.stop="archiveAcquisition(item)"></v-btn>
-                        <v-btn v-if="scope === 'archived'" icon="fa-rotate-left" size="x-small" variant="plain" @click.stop="restoreAcquisition(item)"></v-btn>
+                        <v-btn
+                            v-if="canShowEditButton"
+                            icon="fa-pencil"
+                            size="x-small"
+                            variant="plain"
+                            @click.stop="editAcquisition(item)"
+                        ></v-btn>
+                        <!-- Show archive in all non-archived scopes except 'received' -->
+                        <v-btn
+                            v-if="canArchive && scope !== 'archived' && scope !== 'received'"
+                            icon="fa-box-archive"
+                            size="x-small"
+                            variant="plain"
+                            @click.stop="archiveAcquisition(item)"
+                        ></v-btn>
+                        <v-btn
+                            v-if="canArchive && scope === 'archived'"
+                            icon="fa-rotate-left"
+                            size="x-small"
+                            variant="plain"
+                            @click.stop="restoreAcquisition(item)"
+                        ></v-btn>
                     </template>
 
                     <!-- Custom status column rendering -->
@@ -98,6 +117,7 @@ import { listActiveBranches } from '@/services/branch'
 import { subscribeToActions, waitForEchoConnection } from '@/services/realtime'
 import { exportAsCsv, exportAsJson } from '@/services/export'
 import { ACTIONS, can as canCheck } from '@/services/permission'
+import { getSession } from '@/services/auth'
 import { filterByBranchIds } from '@/utils/filtering'
 
 export default {
@@ -122,6 +142,8 @@ export default {
             },
             branches: [],
             canCreate: canCheck(ACTIONS.CREATE),
+            canEdit: canCheck(ACTIONS.EDIT),
+            canArchive: canCheck(ACTIONS.ARCHIVE),
             pollingInterval: null,
             loadAcquisitionsTimeout: null,
             isRealtimeUpdate: false,
@@ -143,6 +165,7 @@ export default {
                 { value: 'cancelled', title: 'Cancelled' },
             ],
             acquisitionScopes: [
+                { value: 'all', label: 'All' },
                 { value: 'pending', label: 'Pending' },
                 { value: 'received', label: 'Received' },
                 { value: 'missing', label: 'Missing' },
@@ -170,6 +193,19 @@ export default {
                 { text: 'Actions', value: 'actions', sortable: false },
             ],
         }
+    },
+    computed: {
+        canShowEditButton() {
+            try {
+                const session = getSession()
+                const role = session && session.role ? session.role.toString().toLowerCase() : ''
+                // hide edit for admin and branch_admin roles
+                if (role === 'admin' || role === 'branch_admin') return false
+            } catch (e) {
+                // if session read fails, fallback to permission check only
+            }
+            return this.canEdit
+        },
     },
     watch: {
         scope() {
@@ -241,6 +277,8 @@ export default {
 
             try {
                 const scopeFilters = this.getScopeFilters()
+                console.log('[Acquisition] loadItems tableOptions:', this.tableOptions)
+                console.log('[Acquisition] loadItems scopeFilters:', scopeFilters)
                 const { items, total } = await fetchAcquisitionsPage({
                     ...scopeFilters,
                     page: this.tableOptions.page,
@@ -248,7 +286,24 @@ export default {
                 })
 
                 this.acquisitions = Array.isArray(items) ? items : []
+
+                // Defensive filter: ensure scope-specific status is enforced client-side
+                const scopeStatusMap = {
+                    pending: 'pending',
+                    received: 'received',
+                    missing: 'missing',
+                    cancelled: 'cancelled',
+                }
+                const expectedStatus = scopeStatusMap[this.scope]
+                if (expectedStatus) {
+                    this.acquisitions = this.acquisitions.filter(
+                        acq => acq.acquisition_status === expectedStatus
+                    )
+                }
+
                 this.totalAcquisitions = typeof total === 'number' ? total : this.acquisitions.length
+
+                console.log('[Acquisition] loadItems acquisitions length:', this.acquisitions.length, 'total:', this.totalAcquisitions)
 
                 this.applyFilters()
             } catch (error) {
@@ -269,17 +324,21 @@ export default {
          * Map current scope to backend filters for acquisitions.
          */
         getScopeFilters() {
+            console.log('[Acquisition] getScopeFilters scope:', this.scope)
+            if (this.scope === 'all') {
+                return { status: null, archived: 'false' }
+            }
             if (this.scope === 'pending') {
-                return { status: 'pending', archived: 'false', active: true }
+                return { status: 'pending', archived: 'false' }
             }
             if (this.scope === 'received') {
-                return { status: 'received', archived: 'false', active: true }
+                return { status: 'received', archived: 'false' }
             }
             if (this.scope === 'missing') {
-                return { status: 'missing', archived: 'false', active: true }
+                return { status: 'missing', archived: 'false' }
             }
             if (this.scope === 'cancelled') {
-                return { status: 'cancelled', archived: 'false', active: true }
+                return { status: 'cancelled', archived: 'false' }
             }
             if (this.scope === 'archived') {
                 return { archived: 'true' }
@@ -287,6 +346,7 @@ export default {
             return {}
         },
         applyFilters() {
+            console.log('[Acquisition] applyFilters input filters:', this.filters)
             let filtered = this.acquisitions.slice()
 
             // Filter by search (ID, Title, Author, Requester)
@@ -338,6 +398,7 @@ export default {
             }
 
             this.filteredAcquisitions = filtered
+            console.log('[Acquisition] applyFilters result length:', this.filteredAcquisitions.length)
         },
         viewAcquisition(acquisition) {
             if (!acquisition || !acquisition.id) {
@@ -369,7 +430,7 @@ export default {
 
             try {
                 await archiveAcquisition(acquisition.id)
-                this.loadAcquisitions()
+                await this.loadItems(this.tableOptions)
             } catch (error) {
                 console.error('Failed to archive:', error)
                 this.dialog = {
@@ -388,7 +449,7 @@ export default {
 
             try {
                 await restoreAcquisition(acquisition.id)
-                this.loadAcquisitions()
+                await this.loadItems(this.tableOptions)
             } catch (error) {
                 console.error('Failed to restore:', error)
                 this.dialog = {

@@ -67,6 +67,21 @@
         :isError="dialog.isError"
         @update:visible="dialog.visible = $event"
     />
+
+    <!-- Confirm Archive Dialog -->
+    <v-dialog v-model="confirmDialog.visible" max-width="480px">
+        <v-card>
+            <v-card-title class="text-h6">{{ confirmDialog.title }}</v-card-title>
+            <v-card-text>
+                <div>{{ confirmDialog.message }}</div>
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer />
+                <v-btn variant="text" @click="confirmDialog.visible = false">Cancel</v-btn>
+                <v-btn color="error" @click="archiveBranchConfirmed" :loading="loading">Archive</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
 
 <script>
@@ -110,12 +125,20 @@ export default {
                 message: '',
                 isError: false,
             },
+            // confirmation dialog for archive actions
+            confirmDialog: {
+                visible: false,
+                title: '',
+                message: '',
+                payload: null,
+            },
             branchHeaders: [
                 { text: 'ID', value: 'id' },
                 { text: 'Name', value: 'name' },
                 { text: 'Address', value: 'address' },
                 { text: 'Main Branch', value: 'is_main_branch' },
                 { text: 'Public IP', value: 'public_ip' },
+                { text: 'Public IPv6', value: 'public_ipv6' },
                 { text: 'Actions', value: 'actions', sortable: false },
             ],
         }
@@ -252,22 +275,36 @@ export default {
             this.$router.push({ name: 'create-branch' })
         },
         async archiveBranch(branch) {
-            if (!window.confirm('Are you sure you want to archive this branch?')) {
-                return
+            if (!branch || !branch.id) return
+            this.confirmDialog = {
+                visible: true,
+                title: 'Confirm Archive',
+                message: `Are you sure you want to archive the branch "${branch.name || branch.id}"?`,
+                payload: branch,
             }
+        },
+
+        async archiveBranchConfirmed() {
+            const branch = this.confirmDialog.payload
+            this.confirmDialog.visible = false
+            if (!branch || !branch.id) return
             try {
                 await archiveBranch(branch.id)
-                await this.loadBranches()
+                await this.loadItems(this.tableOptions)
             } catch (error) {
-                this.showDialog('Error', `Failed to archive branch: ${error.message}`, true)
+                const serverMsg = error?.response?.data?.message || (error?.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(' ') : null)
+                const message = serverMsg || (typeof error?.response?.data === 'string' ? error.response.data : error.message || 'Failed to archive branch')
+                this.showDialog('Error', message, true)
             }
         },
         async restoreBranch(branch) {
             try {
                 await restoreBranch(branch.id)
-                await this.loadBranches()
+                await this.loadItems(this.tableOptions)
             } catch (error) {
-                this.showDialog('Error', `Failed to restore branch: ${error.message}`, true)
+                const serverMsg = error?.response?.data?.message || (error?.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(' ') : null)
+                const message = serverMsg || (typeof error?.response?.data === 'string' ? error.response.data : error.message || 'Failed to restore branch')
+                this.showDialog('Error', message, true)
             }
         },
         onDownloadCsv() {

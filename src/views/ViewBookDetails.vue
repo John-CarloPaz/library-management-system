@@ -2,32 +2,63 @@
     <v-container>
         <v-row>
             <v-col cols="12">
-                <AppBar :title="`Book Details`">
-                    <template #title-actions>
-                        <v-btn text @click="goBack">Back</v-btn>
-                    </template>
-                </AppBar>
+                <AppBar :title="`Book Details`" />
 
-                <!-- Book Details Table -->
-                <InfoTable 
-                    title="Book Information"
-                    :fields="bookFieldsData"
+                <StatusBanner
+                    v-if="bannerMessage"
+                    :type="bannerType"
+                    :message="bannerMessage"
+                    :duration="5000"
+                    class="mt-4"
                 />
 
-                <!-- Audit Trail Section -->
-                <InfoTable 
-                    title="Audit Trail"
-                    :fields="auditFieldsData"
-                />
+                <v-card elevation="0" class="py-3" v-if="!loading">
+                    <v-card-text>
+                        <!-- Book Details Table -->
+                        <InfoTable 
+                            title="Book Information"
+                            :fields="bookFieldsData"
+                        />
 
-                <!-- Borrower Details -->
-                <p class="font-weight-bold mb-2 mt-4">Borrower Details</p>
-                <Table :headers="borrowerHeaders" :items="borrowers" :loading="loading" item-key="id">
-                    <template #actions="{ item }">
-                        <v-chip variant="elevated" color="warning" v-if="item.status == 'active'"><p class="text-capitalize">{{ item.status }}</p></v-chip>
-                        <v-chip variant="elevated" color="success" v-if="item.status == 'returned'"><p class="text-capitalize">{{ item.status }}</p></v-chip>
-                    </template>
-                </Table>
+                        <!-- Audit Trail Section -->
+                        <InfoTable 
+                            title="Audit Trail"
+                            :fields="auditFieldsData"
+                        />
+
+                        <!-- Borrower Details -->
+                        <p class="font-weight-bold mb-2 mt-4">Borrower Details</p>
+                        <Table :headers="borrowerHeaders" :items="borrowers" :loading="loading" item-key="id">
+                            <template #actions="{ item }">
+                                <v-chip variant="elevated" color="warning" v-if="item.status == 'active'"><p class="text-capitalize">{{ item.status }}</p></v-chip>
+                                <v-chip variant="elevated" color="success" v-if="item.status == 'returned'"><p class="text-capitalize">{{ item.status }}</p></v-chip>
+                            </template>
+                        </Table>
+
+                        <v-row v-if="book && book.id" class="mt-4" justify="end">
+                            <v-btn
+                                variant="outlined"
+                                class="mr-2 bg-white text-primary"
+                                @click="goBack"
+                            >
+                                Back
+                            </v-btn>
+                            <v-btn
+                                color="primary"
+                                :disabled="loading"
+                                @click="editBook"
+                            >
+                                Edit
+                            </v-btn>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+
+                <v-card elevation="1" v-if="loading" class="py-3">
+                    <v-card-text>
+                        <v-progress-linear indeterminate></v-progress-linear>
+                    </v-card-text>
+                </v-card>
             </v-col>
         </v-row>
     </v-container>
@@ -37,12 +68,13 @@
 import AppBar from '@/components/AppBar.vue';
 import Table from '@/components/Table.vue';
 import InfoTable from '@/components/InfoTable.vue';
+import StatusBanner from '@/components/StatusBanner.vue';
 import { getBook } from '@/services/book';
 import { subscribeToActions, waitForEchoConnection } from '@/services/realtime';
 
 export default {
     name: 'ViewBookDetails',
-    components: { AppBar, Table, InfoTable },
+    components: { AppBar, Table, InfoTable, StatusBanner },
     props: {
         bookCode: {
             type: String,
@@ -53,6 +85,8 @@ export default {
         return {
             book: {},
             loading: false,
+            bannerMessage: '',
+            bannerType: 'success',
             // Borrowers will be loaded from the backend in a future update.
             // For now, start with an empty list instead of hardcoded test data.
             borrowers: [],
@@ -65,6 +99,12 @@ export default {
         };
     },
     async created() {
+        // Show success banner when redirected from edit with success flag
+        if (this.$route.query.success === 'true' || this.$route.query.success === true) {
+            this.bannerMessage = 'Book updated successfully!';
+            this.bannerType = 'success';
+        }
+
         await this.loadBook();
 
         // Real-time listener for book updates
@@ -90,7 +130,7 @@ export default {
                 { label: 'ISBN', value: this.book.catalogue?.isbn || this.book.isbn },
                 { label: 'Call Number', value: this.book.catalogue?.call_number || this.book.call_number },
                 { label: 'Branch', value: this.book.branch?.name || `Branch ${this.book.branch_id}` },
-                { label: 'Status', value: this.book.catalogue?.cataloging_status || this.book.cataloging_status },
+                { label: 'Status', value: this.book.book_status },
                 { 
                     label: 'QR Code', 
                     value: this.book.qr_code ? this.getQrCodeFilename() : 'N/A',
@@ -123,6 +163,10 @@ export default {
             } finally {
                 this.loading = false;
             }
+        },
+        editBook() {
+            if (!this.book || !this.book.id) return;
+            this.$router.push({ name: 'edit-book', params: { bookCode: this.book.id } });
         },
         goBack() {
             this.$router.back();

@@ -3,7 +3,7 @@
         <template #search-actions>
             <div>
                 <v-text-field density="compact" v-model="filters.search" label="Search Catalogue ID" variant="solo-filled"
-                    hide-details="auto" @input="applyFilters" style="max-width:360px;" />
+                    hide-details="auto" @input="applyFilters" style="max-width:360px;" prepend-inner-icon="fas fa-magnifying-glass" />
             </div>
         </template>
 
@@ -35,9 +35,16 @@
                 >
                     <template #actions="{ item }">
                         <v-btn icon="fa-eye" size="x-small" variant="plain" @click.stop="viewCatalogue(item)" title="View"></v-btn>
-                        <v-btn icon="fa-pencil" size="x-small" variant="plain" @click.stop="editCatalogue(item)" title="Edit"></v-btn>
-                        <v-btn v-if="scope === 'active' && item.cataloging_status === 'available'" icon="fa-qrcode" size="x-small" variant="plain" @click.stop="printQrCodes(item)" title="Print QR Codes"></v-btn>
-                        <v-btn v-if="scope === 'active'" icon="fa-box-archive" size="x-small" variant="plain" @click.stop="archiveCatalogue(item)" title="Archive"></v-btn>
+                        <v-btn v-if="canEditCatalogue(item)" icon="fa-pencil" size="x-small" variant="plain" @click.stop="editCatalogue(item)" title="Edit"></v-btn>
+                        <v-btn v-if="scope !== 'archived' && item.cataloging_status === 'available'" icon="fa-qrcode" size="x-small" variant="plain" @click.stop="printQrCodes(item)" title="Print QR Codes"></v-btn>
+                        <v-btn
+                            v-if="scope !== 'archived' && item.cataloging_status !== 'available'"
+                            icon="fa-box-archive"
+                            size="x-small"
+                            variant="plain"
+                            @click.stop="archiveCatalogue(item)"
+                            title="Archive"
+                        ></v-btn>
                         <v-btn v-if="scope === 'archived'" icon="fa-rotate-left" size="x-small" variant="plain" @click.stop="restoreCatalogue(item)" title="Restore"></v-btn>
                     </template>
 
@@ -88,7 +95,7 @@ import Table from '@/components/Table.vue'
 import ScopeTab from '@/components/ScopeTab.vue'
 import ErrorDialog from '@/components/ErrorDialog.vue'
 import FilterDrawer from '@/components/FilterDrawer.vue'
-import { fetchCataloguesPage, archiveCatalogue, restoreCatalogue } from '@/services/catalogue'
+import { fetchCataloguesPage, archiveCatalogue, restoreCatalogue, getCatalogue } from '@/services/catalogue'
 import { subscribeToActions, waitForEchoConnection } from '@/services/realtime'
 import { listBooks } from '@/services/book'
 import { exportAsCsv, exportAsJson } from '@/services/export'
@@ -136,6 +143,7 @@ export default {
                 { value: 'ready_for_labeling', title: 'Ready for Labeling' },
             ],
             catalogueScopes: [
+                { value: 'all', label: 'All' },
                 { value: 'available', label: 'Available' },
                 { value: 'pending', label: 'Pending' },
                 { value: 'in_progress', label: 'In Progress' },
@@ -288,6 +296,9 @@ export default {
          * Map current scope to backend filters for catalogues.
          */
         getScopeFilters() {
+            if (this.scope === 'all') {
+                return { status: null, archived: 'false', active: true }
+            }
             if (this.scope === 'available') {
                 return { status: 'available', archived: 'false', active: true }
             }
@@ -380,16 +391,58 @@ export default {
                 console.error('Failed to navigate:', error)
             }
         },
+        canEditCatalogue(catalogue) {
+            try {
+                const session = getSession()
+                const role = session && session.role ? String(session.role).toLowerCase() : ''
+
+                // Super admin can edit all records
+                if (role === 'super_admin') return true
+
+                // Admins should not be allowed to edit catalogues via UI
+                if (role === 'admin') return false
+
+                // Branch admins can edit only catalogues belonging to their branch
+                if (role === 'branch_admin') {
+                    const sessionBranch = session.branch_id != null ? Number(session.branch_id) : session.branch_id
+                    return sessionBranch != null && Number(catalogue.branch_id) === Number(sessionBranch)
+                }
+            } catch (e) {
+                // ignore and fall back to permission check
+            }
+
+            // Default to existing permission check
+            return this.canEdit
+        },
         async printQrCodes(catalogue) {
             if (!catalogue || !catalogue.id) {
                 console.warn('printQrCodes called without valid catalogue:', catalogue)
                 return
             }
             try {
-                // Fetch all books for this catalogue
-                const allBooks = await listBooks(true);
-                const catalogueBooks = allBooks.filter(book => book.catalogue_id === catalogue.id);
-                
+                // First try fetching the catalogue directly (API typically returns nested `books`).
+                let catalogueResp = null
+                try {
+                    catalogueResp = await getCatalogue(catalogue.id)
+                } catch (err) {
+                    console.warn('[Catalogue] getCatalogue failed, will fallback to listBooks:', err && err.message)
+                }
+
+                let catalogueBooks = []
+                if (catalogueResp && Array.isArray(catalogueResp.books) && catalogueResp.books.length > 0) {
+                    catalogueBooks = catalogueResp.books
+                } else {
+                    // Fallback: fetch all books and match by id (handles APIs that don't nest books)
+                    const allBooks = await listBooks({ forceRefresh: true });
+                    console.log('[Catalogue] printQrCodes - fetched books (fallback):', allBooks.length, { sample: allBooks.slice(0, 3) })
+                    catalogueBooks = allBooks.filter(book => {
+                        const bookCatalogueId = (book && (book.catalogue_id ?? (book.catalogue && book.catalogue.id)));
+                        return String(bookCatalogueId) === String(catalogue.id);
+                    })
+                }
+
+                console.log('[Catalogue] printQrCodes - catalogue id:', catalogue.id, 'matched books:', catalogueBooks.length)
+
                 if (!catalogueBooks || catalogueBooks.length === 0) {
                     this.dialog = {
                         visible: true,
@@ -399,7 +452,7 @@ export default {
                     }
                     return;
                 }
-                
+
                 // Print all QR codes for this catalogue
                 printQrCodes(catalogueBooks, catalogue.title);
             } catch (error) {
@@ -420,7 +473,7 @@ export default {
 
             try {
                 await archiveCatalogue(catalogue.id)
-                this.loadCatalogues()
+                await this.loadItems(this.tableOptions)
             } catch (error) {
                 console.error('Failed to archive:', error)
                 this.dialog = {
@@ -439,7 +492,7 @@ export default {
 
             try {
                 await restoreCatalogue(catalogue.id)
-                this.loadCatalogues()
+                await this.loadItems(this.tableOptions)
             } catch (error) {
                 console.error('Failed to restore:', error)
                 this.dialog = {

@@ -101,10 +101,10 @@
                     </v-row>
                     <v-row>
                         <v-col cols="12" md="6">
-                            <v-text-field v-model="form.program" label="Program" required></v-text-field>
+                            <v-autocomplete v-model="form.program" :items="programOptions" label="Program" required clearable dense />
                         </v-col>
                         <v-col cols="12" md="3">
-                            <v-text-field v-model.number="form.year_level" label="Year Level" type="number" min="1" max="5" required></v-text-field>
+                            <v-text-field v-model.number="form.year_level" label="Year Level" type="number" min="1" max="5" required append-inner-icon="fa-calendar"></v-text-field>
                         </v-col>
                         <v-col cols="12" md="3">
                             <v-select
@@ -155,6 +155,37 @@ export default {
     },
     data() {
         return {
+            programOptions: [
+                'MASTER OF SCIENCE IN NURSING',
+                'MAJOR IN LEADERSHIP AND MANAGEMENT (ACADEMIC TRACK)',
+                'MAJOR IN CLINICAL NURSING WITH SPECIALIZATION IN ADULT HEALTH (PROFESSIONAL TRACK)',
+                'BACHELOR OF SCIENCE IN NURSING',
+                'BACHELOR OF SCIENCE IN CRIMINOLOGY',
+                'BACHELOR OF ARTS IN COMMUNICATION',
+                'BACHELOR OF SCIENCE IN SOCIAL WORK',
+                'BACHELOR OF SCIENCE IN ACCOUNTANCY',
+                'BACHELOR OF SCIENCE IN BUSINESS ADMINISTRATION',
+                'BACHELOR OF SCIENCE IN CUSTOMS ADMINISTRATION',
+                'BACHELOR OF SCIENCE IN REAL ESTATE MANAGEMENT',
+                'BACHELOR OF SCIENCE IN OFFICE ADMINISTRATION',
+                'MASTERS IN INFORMATION TECHNOLOGY',
+                'BACHELOR OF SCIENCE IN COMPUTER SCIENCE',
+                'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY - MOBILE DEVELOPMENT',
+                'BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY - NETWORK ADMINISTRATION',
+                'BACHELOR OF SCIENCE IN ENTERTAINMENT AND MULTIMEDIA COMPUTING',
+                'ASSOCIATE IN COMPUTER TECHNOLOGY',
+                'BACHELOR OF ELEMENTARY EDUCATION',
+                'BACHELOR OF SCIENCE IN PHYSICAL EDUCATION',
+                'BACHELOR OF SECONDARY EDUCATION - MAJOR IN ENGLISH',
+                'BACHELOR OF SECONDARY EDUCATION - MAJOR IN MATHEMATICS',
+                'CERTIFICATE FOR TEACHING PROGRAM (18 UNITS)',
+                'BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT',
+                'BACHELOR OF SCIENCE IN TOURISM MANAGEMENT',
+                'BACHELOR OF SCIENCE IN COMPUTER ENGINEERING',
+                'BACHELOR OF SCIENCE IN ELECTRONICS ENGINEERING',
+                'BASIC EDUCATION',
+                'EMPLOYEE',
+            ],
             loading: false,
             scope: 'active',
             students: [],
@@ -169,6 +200,7 @@ export default {
                 { value: 'suspended', title: 'Suspended' },
             ],
             studentScopes: [
+                { value: 'all', label: 'All' },
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
                 { value: 'suspended', label: 'Suspended' },
@@ -244,6 +276,9 @@ export default {
          * Map current scope to backend filters for students.
          */
         getScopeFilters() {
+            if (this.scope === 'all') {
+                return { status: null, archived: 'false' }
+            }
             if (this.scope === 'archived') {
                 return { archived: 'true' }
             }

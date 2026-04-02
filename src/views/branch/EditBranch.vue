@@ -48,18 +48,26 @@
                                 :rules="[v => !!v || 'Public IP is required', validateIp]"
                             />
 
+                            <v-text-field
+                                v-model="form.public_ipv6"
+                                label="Public IPv6 Address"
+                                variant="outlined"
+                                density="compact"
+                                class="mb-4"
+                            />
+
                             <v-checkbox
                                 v-model="form.is_main_branch"
                                 label="Mark as Main Branch"
                                 class="mb-4"
                             />
 
-                            <div class="d-flex gap-2">
-                                <v-btn color="primary" type="submit" :loading="submitting">
-                                    Update Branch
-                                </v-btn>
-                                <v-btn variant="outlined" @click="goBack">Cancel</v-btn>
-                            </div>
+                            <v-row>
+                                <v-col class="d-flex justify-end">
+                                    <v-btn text @click="goBack" class="mr-3" :disabled="submitting">Cancel</v-btn>
+                                    <v-btn color="primary" type="submit" :loading="submitting">Update Branch</v-btn>
+                                </v-col>
+                            </v-row>
                         </v-form>
                     </v-card-text>
                 </v-card>
@@ -103,6 +111,7 @@ export default {
                 address: '',
                 details: '',
                 public_ip: '',
+                public_ipv6: '',
                 is_main_branch: false,
             },
             submitting: false,
@@ -130,16 +139,17 @@ export default {
         async loadBranch() {
             try {
                 const branch = await getBranch(this.id)
+                this.branch = branch
                 this.form = {
-                    name: this.branch.name,
-                    address: this.branch.address,
-                    details: this.branch.details,
-                    public_ip: this.branch.public_ip,
-                    is_main_branch: this.branch.is_main_branch,
+                    name: branch.name,
+                    address: branch.address,
+                    details: branch.details,
+                    public_ip: branch.public_ip,
+                    public_ipv6: branch.public_ipv6,
+                    is_main_branch: branch.is_main_branch,
                 }
             } catch (error) {
                 this.showDialog('Load Failed', 'Failed to load branch: ' + (error.message || 'Unknown error'), true)
-                this.$router.push({ name: 'branch-management' })
             }
         },
         async submitForm() {
@@ -148,7 +158,13 @@ export default {
             this.submitting = true
             try {
                 await editBranch(this.id, this.form)
-                this.$router.push({ name: 'branch-management' })
+
+                // After successful update, go back to this branch's view page
+                this.$router.push({
+                    name: 'view-branch',
+                    params: { id: this.id },
+                    query: { success: 'true' },
+                })
             } catch (error) {
                 this.showDialog('Error', `Failed to update branch: ${error.message}`, true)
             } finally {

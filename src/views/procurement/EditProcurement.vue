@@ -9,12 +9,16 @@
         <v-card elevation="1" class="py-3" v-if="!isLoading">
             <v-card-text>
                 <v-form ref="formRef" @submit.prevent="submitForm">
+                    <p class="text-subtitle-1 font-weight-semibold">Book Information</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <v-row>
                         <v-col cols="12" md="6">
                             <v-text-field
                                 v-model="form.title"
                                 label="Title"
                                 placeholder="Enter book title"
+                                variant="solo"
                                 :error-messages="errors.title ? [errors.title] : []"
                                 @input="clearError('title')"
                             ></v-text-field>
@@ -24,6 +28,7 @@
                                 v-model="form.author"
                                 label="Author"
                                 placeholder="Enter author name"
+                                variant="solo"
                                 :error-messages="errors.author ? [errors.author] : []"
                                 @input="clearError('author')"
                             ></v-text-field>
@@ -36,6 +41,7 @@
                                 v-model="form.publisher"
                                 label="Publisher"
                                 placeholder="Enter publisher name"
+                                variant="solo"
                             ></v-text-field>
                         </v-col>
                         <v-col cols="12" md="6">
@@ -43,9 +49,13 @@
                                 v-model="form.place_of_publication"
                                 label="Place of Publication"
                                 placeholder="Enter place of publication"
+                                variant="solo"
                             ></v-text-field>
                         </v-col>
                     </v-row>
+
+                    <p class="text-subtitle-1 font-weight-semibold">Publication Details</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
 
                     <v-row>
                         <v-col cols="12" md="4">
@@ -53,6 +63,7 @@
                                 v-model="form.edition"
                                 label="Edition"
                                 placeholder="e.g., 2nd Edition"
+                                variant="solo"
                             ></v-text-field>
                         </v-col>
                         <v-col cols="12" md="4">
@@ -60,6 +71,7 @@
                                 v-model="form.isbn"
                                 label="ISBN"
                                 placeholder="Enter ISBN"
+                                variant="solo"
                                 :error-messages="errors.isbn ? [errors.isbn] : []"
                                 @input="clearError('isbn')"
                             ></v-text-field>
@@ -70,6 +82,7 @@
                                 label="Year of Publication"
                                 type="number"
                                 placeholder="YYYY"
+                                variant="solo"
                                 :error-messages="errors.year_of_publication ? [errors.year_of_publication] : []"
                                 @input="clearError('year_of_publication')"
                             ></v-text-field>
@@ -84,6 +97,7 @@
                                 type="number"
                                 placeholder="Enter quantity"
                                 min="1"
+                                variant="solo"
                                 :error-messages="errors.quantity_requested ? [errors.quantity_requested] : []"
                                 @input="clearError('quantity_requested')"
                             ></v-text-field>
@@ -95,23 +109,21 @@
                                 :items="approvalStatuses"
                                 item-title="text"
                                 item-value="value"
+                                variant="solo"
+                                :disabled="isAdminRole"
                             ></v-select>
-                        </v-col>
-                    </v-row>
-
-                    <v-divider class="my-4"></v-divider>
-
-                    <v-row>
-                        <v-col cols="12">
-                            <v-btn color="primary" type="submit" :loading="loading">
-                                Update Request
-                            </v-btn>
-                            <v-btn text @click="goBack" class="ml-2">Cancel</v-btn>
                         </v-col>
                     </v-row>
                 </v-form>
             </v-card-text>
-        </v-card>
+                </v-card>
+
+        <v-row class="mt-4">
+            <v-col class="d-flex justify-end">
+                <v-btn text @click="goBack" class="mr-3">Cancel</v-btn>
+                <v-btn color="primary" type="submit" :loading="loading" @click="submitForm">Update Request</v-btn>
+            </v-col>
+        </v-row>
 
         <v-card elevation="1" v-if="isLoading" class="py-3">
             <v-card-text>
@@ -134,7 +146,7 @@
 import AppBar from '@/components/AppBar.vue'
 import ErrorDialog from '@/components/ErrorDialog.vue'
 import { getProcurement, updateProcurement, validateProcurement, getApprovalStatuses } from '@/services/procurement'
-import { ACTIONS, can as canCheck } from '@/services/permission'
+import { ACTIONS, can as canCheck, getSession } from '@/services/permission'
 
 export default {
     name: 'edit-procurement',
@@ -168,6 +180,12 @@ export default {
             },
             errors: {},
             approvalStatuses: getApprovalStatuses(),
+        }
+    },
+    computed: {
+        isAdminRole() {
+            const s = getSession()
+            return s && s.role === 'admin'
         }
     },
     async created() {

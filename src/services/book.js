@@ -110,16 +110,29 @@ function flattenBooks(books) {
  * Internal helper to fetch books via unified list endpoint.
  * Supports ListQueryService params: status, archived, active, count, page, per_page.
  */
-async function fetchBooks({ status, archived, active, count = 'all', page, perPage } = {}) {
+async function fetchBooks(params = {}) {
+  const {
+    status,
+    archived,
+    active,
+    count = 'all',
+    page,
+    perPage,
+    ...rest
+  } = params || {}
+
+  const axiosParams = {
+    status,
+    archived,
+    active,
+    count,
+    page,
+    per_page: perPage,
+    ...rest,
+  }
+
   const response = await getAxiosInstance().get(API_ENDPOINTS.LIST, {
-    params: {
-      status,
-      archived,
-      active,
-      count,
-      page,
-      per_page: perPage,
-    },
+    params: axiosParams,
   });
 
   let data = response.data;
@@ -140,15 +153,22 @@ async function fetchBooks({ status, archived, active, count = 'all', page, perPa
  * Paginated helper for server-side tables.
  * Returns an object with the current page of flattened books and the total count.
  */
-export async function fetchBooksPage({ status, archived, active, page = 1, itemsPerPage = 10 } = {}) {
+export async function fetchBooksPage(params = {}) {
+  const { status, archived, active, page = 1, itemsPerPage = 10, ...rest } = params || {}
+
+  const axiosParams = {
+    status,
+    archived,
+    active,
+    page,
+    per_page: itemsPerPage,
+    ...rest,
+  }
+
+  console.log('book.fetchBooksPage request params:', axiosParams)
+
   const response = await getAxiosInstance().get(API_ENDPOINTS.LIST, {
-    params: {
-      status,
-      archived,
-      active,
-      page,
-      per_page: itemsPerPage,
-    },
+    params: axiosParams,
   });
 
   const payload = response.data || {};
@@ -177,6 +197,11 @@ export async function fetchBooksPage({ status, archived, active, page = 1, items
   if (!total) {
     total = items.length;
   }
+
+  console.log('book.fetchBooksPage normalized result:', {
+    itemsLength: items.length,
+    total,
+  })
 
   return { items, total };
 }
@@ -257,6 +282,29 @@ export async function getBook(id) {
     return data
   } catch (error) {
     console.error('Failed to get book:', id, error.message)
+    throw error
+  }
+}
+
+/**
+ * Find a book by its reference number using backend `book/find` endpoint.
+ * @param {string} reference - reference_number to search for
+ * @returns {Promise<object>} flattened book object
+ */
+export async function findBookByReference(reference) {
+  try {
+    if (!reference) throw new Error('reference is required')
+    const axios = getAxiosInstance()
+    const resp = await axios.get(`/books/find/${encodeURIComponent(String(reference))}`)
+    let data = resp.data || {}
+    if (data.book && typeof data.book === 'object') {
+      data = data.book
+    } else if (data.data && typeof data.data === 'object') {
+      data = data.data
+    }
+    return flattenBook(data)
+  } catch (error) {
+    console.error('findBookByReference failed:', error.response?.data || error.message)
     throw error
   }
 }

@@ -1,8 +1,6 @@
 <template>
-    <AppBar title="Student Details">
+    <AppBar title="Member Details">
         <template #title-actions>
-            <v-btn text @click="goBack">Back</v-btn>
-            <v-btn color="primary" v-if="student" @click="editStudent">Edit</v-btn>
             <v-btn
                 v-if="student && student.qr_code"
                 color="primary"
@@ -14,28 +12,57 @@
         </template>
     </AppBar>
 
+    <StatusBanner
+        v-if="bannerMessage"
+        :type="bannerType"
+        :message="bannerMessage"
+        :duration="5000"
+        class="mt-4"
+    />
+
     <v-container class="mt-4">
         <v-row>
-            <v-col cols="12" md="8" v-if="student">
-                <InfoTable
-                    title="Student Information"
-                    :fields="studentFieldsData"
-                />
+            <v-col cols="12">
+                <v-card elevation="0" class="py-3" v-if="!isLoading && student">
+                    <v-card-text>
+                        <InfoTable
+                            title="Student Information"
+                            :fields="studentFieldsData"
+                        />
 
-                <InfoTable
-                    title="Status"
-                    :fields="statusFieldsData"
-                />
+                        <InfoTable
+                            title="Status"
+                            :fields="statusFieldsData"
+                        />
 
-                <InfoTable
-                    v-if="student.qr_code"
-                    title="QR Code"
-                    :fields="qrFieldsData"
-                />
-            </v-col>
-            <v-col cols="12" v-else>
-                <v-card>
-                    <v-card-text>Loading...</v-card-text>
+                        <InfoTable
+                            v-if="student.qr_code"
+                            title="QR Code"
+                            :fields="qrFieldsData"
+                        />
+
+                        <v-row class="mt-4" justify="end">
+                            <v-btn
+                                variant="outlined"
+                                class="mr-2 bg-white text-primary"
+                                @click="goBack"
+                            >
+                                Back
+                            </v-btn>
+                            <v-btn
+                                color="primary"
+                                @click="editStudent"
+                            >
+                                Edit
+                            </v-btn>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+
+                <v-card elevation="1" v-if="isLoading" class="py-3">
+                    <v-card-text>
+                        <v-progress-linear indeterminate></v-progress-linear>
+                    </v-card-text>
                 </v-card>
             </v-col>
         </v-row>
@@ -54,12 +81,13 @@
 import AppBar from '@/components/AppBar.vue'
 import InfoTable from '@/components/InfoTable.vue'
 import ErrorDialog from '@/components/ErrorDialog.vue'
+import StatusBanner from '@/components/StatusBanner.vue'
 import { getStudentByNumber } from '@/services/student'
-import { printQrCodes } from '@/services/qrPrint'
+import { printQrCodes, getQrCodeUrl } from '@/services/qrPrint'
 
 export default {
     name: 'view-student',
-    components: { AppBar, InfoTable, ErrorDialog },
+    components: { AppBar, InfoTable, ErrorDialog, StatusBanner },
     props: {
         studentNumber: {
             type: [String, Number],
@@ -69,6 +97,9 @@ export default {
     data() {
         return {
             student: null,
+            isLoading: false,
+            bannerMessage: '',
+            bannerType: 'success',
             dialog: {
                 visible: false,
                 title: '',
@@ -85,8 +116,7 @@ export default {
         },
         qrUrl() {
             if (!this.student || !this.student.qr_code) return ''
-            const base = import.meta.env.VITE_STORAGE_URL || `${import.meta.env.VITE_API_URL || ''}/storage`
-            return `${base}/${this.student.qr_code}`
+            return getQrCodeUrl(this.student.qr_code)
         },
         studentFieldsData() {
             if (!this.student) return []
@@ -98,6 +128,7 @@ export default {
                 { label: 'Student Number', value: studentNumber },
                 { label: 'Program', value: this.student.program },
                 { label: 'Year Level', value: this.student.year_level },
+                { label: 'Semester End Date', value: this.student.semester && this.student.semester.end_date ? this.student.semester.end_date : null },
             ]
         },
         statusFieldsData() {
@@ -120,16 +151,23 @@ export default {
         },
     },
     created() {
+        if (this.$route.query.success === 'true' || this.$route.query.success === true) {
+            this.bannerMessage = 'Student updated successfully!'
+            this.bannerType = 'success'
+        }
         this.loadStudent()
     },
     methods: {
         async loadStudent() {
+            this.isLoading = true
             try {
                 this.student = await getStudentByNumber(this.studentNumber)
             } catch (error) {
                 const message = error.response?.data?.message || error.message || 'Failed to load student'
                 this.showDialog('Load Failed', message, true)
-                this.$router.push({ name: 'student-management' })
+                this.$router.push({ name: 'member-management' })
+            } finally {
+                this.isLoading = false
             }
         },
         editStudent() {
@@ -143,15 +181,17 @@ export default {
             this.dialog = { visible: true, title, message, isError }
         },
         openQrInNewTab() {
-            if (!this.qrUrl) return
-            window.open(this.qrUrl, '_blank')
+            if (!this.student || !this.student.qr_code) return
+            const url = getQrCodeUrl(this.student.qr_code)
+            if (!url) return
+            window.open(url, '_blank')
         },
         printQr() {
             try {
                 if (!this.student || !this.student.qr_code) return
                 const qrItem = {
                     title: this.fullName || `Student ${this.student.student_id}`,
-                    qr_code: this.qrUrl,
+                    qr_code: this.student.qr_code,
                 }
                 printQrCodes([qrItem], qrItem.title)
             } catch (e) {

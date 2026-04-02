@@ -32,6 +32,15 @@
                     @click:append-inner.stop="togglePassword"
                 ></v-text-field>
 
+                <div class="mb-4 mt-n2 text-right">
+                    <span
+                        class="text-grey-darken-2 text-caption forgot-password-link"
+                        @click="showForgotPasswordDialog"
+                    >
+                        Forgot password?
+                    </span>
+                </div>
+
                 <p v-show="errMsg" class="text-red">{{ errMsg }}</p>
 
                 <v-btn
@@ -60,6 +69,14 @@
                 </div>
             </v-img>
         </v-col>
+
+        <ErrorDialog
+            :visible.sync="forgotDialog.visible"
+            :title="forgotDialog.title"
+            :message="forgotDialog.message"
+            :isError="forgotDialog.isError"
+            @update:visible="val => (forgotDialog.visible = val)"
+        />
     </v-row>
 </template>
 
@@ -69,6 +86,7 @@ import { useRouter } from 'vue-router'
 import loginImage from '../assets/login-photo.png'
 import logo from '../assets/spcf-logo.png'
 import { login as authLogin, isAuthenticated } from '../services/auth'
+import ErrorDialog from '@/components/ErrorDialog.vue'
 
 const email = ref('')
 const password = ref('')
@@ -77,6 +95,12 @@ const passwordField = ref(null)
 const router = useRouter()
 const errMsg = ref('')
 const isLoading = ref(false)
+const forgotDialog = ref({
+    visible: false,
+    title: 'Forgot Password',
+    message: 'To reset your password contact your administrator',
+    isError: false,
+})
 
 onMounted(() => {
     // If already authenticated, redirect to the app
@@ -129,5 +153,9 @@ const togglePassword = async () => {
         inputEl.focus()
         inputEl.setSelectionRange(len, len)
     }
+}
+
+const showForgotPasswordDialog = () => {
+    forgotDialog.value.visible = true
 }
 </script>

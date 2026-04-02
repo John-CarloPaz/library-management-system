@@ -54,7 +54,6 @@
                             density="compact"
                             clearable
                             prepend-inner-icon="fa-search"
-                            @update:modelValue="emitFilters"
                         />
                     </div>
                 </template>
@@ -72,7 +71,6 @@
                             clearable
                             multiple
                             chips
-                            @update:modelValue="emitFilters"
                         >
                             <template #item="{ props, item }">
                                 <v-list-item v-bind="props" :prepend-icon="null">
@@ -96,7 +94,6 @@
                             clearable
                             multiple
                             chips
-                            @update:modelValue="emitFilters"
                         >
                             <template #item="{ props, item }">
                                 <v-list-item v-bind="props" :prepend-icon="null">
@@ -122,7 +119,6 @@
                             clearable
                             multiple
                             chips
-                            @update:modelValue="emitFilters"
                         />
                     </div>
                 </template>
@@ -136,8 +132,8 @@
                             type="date"
                             variant="solo"
                             density="compact"
+                            append-inner-icon="fa-calendar"
                             clearable
-                            @update:modelValue="emitFilters"
                         />
                     </div>
                 </template>
@@ -153,7 +149,7 @@
                                 label="From"
                                 variant="solo"
                                 density="compact"
-                                @update:modelValue="emitFilters"
+                                append-inner-icon="fa-calendar"
                             />
                             <div class="range-divider">to</div>
                             <v-text-field
@@ -162,7 +158,7 @@
                                 label="To"
                                 variant="solo"
                                 density="compact"
-                                @update:modelValue="emitFilters"
+                                append-inner-icon="fa-calendar"
                             />
                         </div>
                     </div>
@@ -189,7 +185,7 @@
                 <v-btn
                     color="primary"
                     size="small"
-                    @click="toggleDrawer"
+                    @click="applyAndClose"
                     block
                 >
                     Apply Filters
@@ -265,7 +261,7 @@ export default {
             }),
         },
     },
-    emits: ['update:modelValue'],
+    emits: ['update:modelValue', 'apply'],
     data() {
         return {
             isOpen: false,
@@ -328,7 +324,13 @@ export default {
                 dateAddedFrom: '',
                 dateAddedTo: '',
             }
-            this.emitFilters()
+            // Do not emit immediately; respect explicit Apply action
+        },
+        applyAndClose() {
+            // Emit the chosen filters and a semantic 'apply' event, then close drawer
+            this.$emit('update:modelValue', { ...this.localFilters })
+            this.$emit('apply', { ...this.localFilters })
+            this.toggleDrawer()
         },
         startDrag(e) {
             // Prevent opening drawer when dragging

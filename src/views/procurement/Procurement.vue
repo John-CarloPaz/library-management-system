@@ -3,7 +3,7 @@
         <template #search-actions>
             <div>
                 <v-text-field density="compact" v-model="filters.search" label="Search Request ID" variant="solo-filled"
-                    hide-details="auto" @input="applyFilters" style="max-width:360px;" />
+                    hide-details="auto" @input="applyFilters" style="max-width:360px;" prepend-inner-icon="fas fa-magnifying-glass"/>
             </div>
         </template>
 
@@ -35,9 +35,17 @@
                 >
                     <template #actions="{ item }">
                         <v-btn icon="fa-eye" size="x-small" variant="plain" @click.stop="viewProcurement(item)" title="View"></v-btn>
-                        <v-btn icon="fa-pencil" size="x-small" variant="plain" @click.stop="editProcurement(item)" title="Edit" v-if="scope === 'active'"></v-btn>
-                        <v-btn v-if="scope === 'active'" icon="fa-box-archive" size="x-small" variant="plain" @click.stop="archiveProcurement(item)" title="Archive"></v-btn>
-                        <v-btn v-if="scope === 'archived'" icon="fa-rotate-left" size="x-small" variant="plain" @click.stop="restoreProcurement(item)" title="Restore"></v-btn>
+                        <v-btn type="button" icon="fa-pencil" size="x-small" variant="plain" @click.stop="editProcurement(item)" title="Edit" v-if="scope !== 'archived' && item.admin_approval !== 'approved'"></v-btn>
+                        <v-btn
+                            type="button"
+                            v-if="scope !== 'archived' && item.admin_approval !== 'approved'"
+                            icon="fa-box-archive"
+                            size="x-small"
+                            variant="plain"
+                            @click.stop="archiveProcurement(item)"
+                            title="Archive"
+                        ></v-btn>
+                        <v-btn type="button" v-if="scope === 'archived'" icon="fa-rotate-left" size="x-small" variant="plain" @click.stop="restoreProcurement(item)" title="Restore"></v-btn>
                     </template>
 
                     <!-- Custom status column rendering -->
@@ -70,7 +78,32 @@
         searchLabel="Request ID or Requester"
         @update:modelValue="applyFilters"
     />
-</template>
+        <!-- Error Dialog -->
+        <ErrorDialog 
+            :visible.sync="dialog.visible" 
+            :title="dialog.title" 
+            :message="dialog.message" 
+            :isError="dialog.isError"
+            @update:visible="dialog.visible = $event"
+        />
+
+        <!-- Confirm Archive/Restore Dialog -->
+        <v-dialog v-model="confirmDialog.visible" max-width="480px">
+            <v-card>
+                <v-card-title class="text-h6">{{ confirmDialog.title }}</v-card-title>
+                <v-card-text>
+                    <div>{{ confirmDialog.message }}</div>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn variant="text" @click="confirmDialog.visible = false">Cancel</v-btn>
+                    <v-btn :color="confirmDialog.action === 'archive' ? 'error' : 'primary'" @click="confirmDialogConfirmed" :loading="loading">
+                        {{ confirmDialog.action === 'archive' ? 'Archive' : 'Restore' }}
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+    </template>
 
 <script>
 import AppBar from '@/components/AppBar.vue'
@@ -78,12 +111,24 @@ import Table from '@/components/Table.vue'
 import ScopeTab from '@/components/ScopeTab.vue'
 import ErrorDialog from '@/components/ErrorDialog.vue'
 import FilterDrawer from '@/components/FilterDrawer.vue'
-import { fetchProcurementsPage, archiveProcurement, restoreProcurement } from '@/services/procurement'
+import { fetchProcurementsPage, archiveProcurement as archiveProcurementService, restoreProcurement as restoreProcurementService } from '@/services/procurement'
 import { listActiveBranches } from '@/services/branch'
 import { subscribeToActions, waitForEchoConnection } from '@/services/realtime'
 import { exportAsCsv, exportAsJson } from '@/services/export'
-import { ACTIONS, can as canCheck } from '@/services/permission'
+import { getSession } from '@/services/permission'
 import { filterByBranchIds } from '@/utils/filtering'
+
+const canCreateProcurement = () => {
+    const session = getSession()
+    if (!session) return false
+
+    // Block only assistant-type admins; allow all other roles
+    if (session.role === 'admin' && session.employee_type === 'assistant') {
+        return false
+    }
+
+    return true
+}
 
 export default {
     name: 'procurement',
@@ -91,7 +136,7 @@ export default {
     data() {
         return {
             loading: false,
-            scope: 'active',
+            scope: 'approved',
             scopeCounts: {
                 active: null,
                 archived: null,
@@ -106,7 +151,7 @@ export default {
                 sortBy: [],
             },
             branches: [],
-            canCreate: canCheck(ACTIONS.CREATE),
+            canCreate: canCreateProcurement(),
             pollingInterval: null,
             loadProcurementsTimeout: null,
             isRealtimeUpdate: false,
@@ -126,6 +171,7 @@ export default {
                 { value: 'rejected', title: 'Rejected' },
             ],
             procurementScopes: [
+                { value: 'all', label: 'All' },
                 { value: 'approved', label: 'Approved' },
                 { value: 'pending', label: 'Pending' },
                 { value: 'rejected', label: 'Rejected' },
@@ -140,6 +186,19 @@ export default {
                 { text: 'Approval Status', value: 'admin_approval' },
                 { text: 'Actions', value: 'actions', sortable: false },
             ],
+            dialog: {
+                visible: false,
+                title: '',
+                message: '',
+                isError: false,
+            },
+            confirmDialog: {
+                visible: false,
+                title: '',
+                message: '',
+                payload: null,
+                action: null,
+            },
         }
     },
     watch: {
@@ -247,6 +306,9 @@ export default {
          * Scope is enforced by backend; other filters remain frontend-only.
          */
         getScopeFilters() {
+            if (this.scope === 'all') {
+                return { status: null, archived: 'false', active: true }
+            }
             if (this.scope === 'approved') {
                 return { status: 'approved', archived: 'false', active: true }
             }
@@ -328,41 +390,44 @@ export default {
                 return
             }
             try {
+                console.log('Navigating to edit-procurement', procurement.id)
                 this.$router.push({ name: 'edit-procurement', params: { id: procurement.id } })
             } catch (error) {
-                console.error('Failed to navigate:', error)
+                console.error('Failed to navigate to edit-procurement:', error)
             }
         },
         async archiveProcurement(procurement) {
             if (!procurement || !procurement.id) return
 
-            const confirmed = window.confirm(`Archive procurement "${procurement.title}"?`)
-            if (!confirmed) return
+            // Prevent archiving approved procurements
+            if (procurement.admin_approval === 'approved') {
+                this.showDialog('Action Not Allowed', 'Approved procurements cannot be archived.', true)
+                return
+            }
 
-            try {
-                await archiveProcurement(procurement.id)
-                this.loadProcurements()
-            } catch (error) {
-                console.error('Failed to archive:', error)
-                this.showDialog('Error', error.message, true)
+            // open confirmation dialog instead of native confirm
+            this.confirmDialog = {
+                visible: true,
+                title: 'Confirm Archive',
+                message: `Archive procurement "${procurement.title}"?`,
+                payload: procurement,
+                action: 'archive',
             }
         },
         async restoreProcurement(procurement) {
             if (!procurement || !procurement.id) return
 
-            const confirmed = window.confirm(`Restore procurement "${procurement.title}"?`)
-            if (!confirmed) return
-
-            try {
-                await restoreProcurement(procurement.id)
-                this.loadProcurements()
-            } catch (error) {
-                console.error('Failed to restore:', error)
-                this.showDialog('Error', error.message, true)
+            // open confirmation dialog instead of native confirm
+            this.confirmDialog = {
+                visible: true,
+                title: 'Confirm Restore',
+                message: `Restore procurement "${procurement.title}"?`,
+                payload: procurement,
+                action: 'restore',
             }
         },
         createNew() {
-            if (!canCheck(ACTIONS.CREATE)) {
+            if (!canCreateProcurement()) {
                 this.dialog = {
                     visible: true,
                     title: 'Permission Denied',
@@ -372,6 +437,23 @@ export default {
                 return
             }
             this.$router.push({ name: 'create-procurement' })
+        },
+        async confirmDialogConfirmed() {
+            if (!this.confirmDialog || !this.confirmDialog.payload) return
+            const { action, payload } = this.confirmDialog
+            this.confirmDialog.visible = false
+
+            try {
+                if (action === 'archive') {
+                    await archiveProcurementService(payload.id)
+                } else if (action === 'restore') {
+                    await restoreProcurementService(payload.id)
+                }
+                await this.loadItems(this.tableOptions)
+            } catch (error) {
+                console.error(`Failed to ${action}:`, error)
+                this.showDialog('Error', error.message || 'Unknown error', true)
+            }
         },
         onDownloadCsv() {
             exportAsCsv(this.filteredProcurements, this.procurementHeaders, 'procurements.csv')

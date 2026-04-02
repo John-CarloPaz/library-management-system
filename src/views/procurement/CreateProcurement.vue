@@ -9,6 +9,9 @@
         <v-card elevation="1" class="py-3">
             <v-card-text>
                 <v-form ref="formRef" @submit.prevent="submitForm">
+                    <p class="text-subtitle-1 font-weight-semibold">Book Information</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
+
                     <v-row>
                         <v-col cols="12" md="6">
                             <v-text-field
@@ -16,6 +19,7 @@
                                 label="Title"
                                 placeholder="Enter book title"
                                 required
+                                variant="solo"
                                 :error-messages="errors.title ? [errors.title] : []"
                                 @input="clearError('title')"
                             ></v-text-field>
@@ -26,6 +30,7 @@
                                 label="Author"
                                 placeholder="Enter author name"
                                 required
+                                variant="solo"
                                 :error-messages="errors.author ? [errors.author] : []"
                                 @input="clearError('author')"
                             ></v-text-field>
@@ -38,6 +43,7 @@
                                 v-model="form.publisher"
                                 label="Publisher"
                                 placeholder="Enter publisher name"
+                                variant="solo"
                             ></v-text-field>
                         </v-col>
                         <v-col cols="12" md="6">
@@ -45,9 +51,13 @@
                                 v-model="form.place_of_publication"
                                 label="Place of Publication"
                                 placeholder="Enter place of publication"
+                                variant="solo"
                             ></v-text-field>
                         </v-col>
                     </v-row>
+
+                    <p class="text-subtitle-1 font-weight-semibold">Publication Details</p>
+                    <v-divider class="border-opacity-25 mb-4"></v-divider>
 
                     <v-row>
                         <v-col cols="12" md="4">
@@ -55,6 +65,7 @@
                                 v-model="form.edition"
                                 label="Edition"
                                 placeholder="e.g., 2nd Edition"
+                                variant="solo"
                             ></v-text-field>
                         </v-col>
                         <v-col cols="12" md="4">
@@ -62,6 +73,7 @@
                                 v-model="form.isbn"
                                 label="ISBN"
                                 placeholder="Enter ISBN"
+                                variant="solo"
                                 :error-messages="errors.isbn ? [errors.isbn] : []"
                                 @input="clearError('isbn')"
                             ></v-text-field>
@@ -73,6 +85,7 @@
                                 type="number"
                                 placeholder="YYYY"
                                 required
+                                variant="solo"
                                 :error-messages="errors.year_of_publication ? [errors.year_of_publication] : []"
                                 @input="clearError('year_of_publication')"
                             ></v-text-field>
@@ -88,25 +101,22 @@
                                 placeholder="Enter quantity"
                                 required
                                 min="1"
+                                variant="solo"
                                 :error-messages="errors.quantity_requested ? [errors.quantity_requested] : []"
                                 @input="clearError('quantity_requested')"
                             ></v-text-field>
                         </v-col>
                     </v-row>
-
-                    <v-divider class="my-4"></v-divider>
-
-                    <v-row>
-                        <v-col cols="12">
-                            <v-btn color="primary" type="submit" :loading="loading">
-                                Create Request
-                            </v-btn>
-                            <v-btn text @click="goBack" class="ml-2">Cancel</v-btn>
-                        </v-col>
-                    </v-row>
                 </v-form>
             </v-card-text>
         </v-card>
+
+        <v-row class="mt-4">
+            <v-col class="d-flex justify-end">
+                <v-btn text @click="goBack" class="mr-3">Cancel</v-btn>
+                <v-btn color="primary" type="submit" :loading="loading" @click="submitForm">Create Request</v-btn>
+            </v-col>
+        </v-row>
     </v-container>
 
     <!-- Error Dialog -->

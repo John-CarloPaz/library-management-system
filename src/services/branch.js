@@ -130,7 +130,19 @@ export async function listArchivedBranches() {
 export async function getBranch(id) {
   try {
     const response = await getAxiosInstance().get(`${BASE_URL}/view/${id}`)
-    return response.data
+
+    // Normalize possible response shapes (branch | data | raw)
+    let data = response.data
+
+    if (data && typeof data === 'object') {
+      if (data.branch && typeof data.branch === 'object') {
+        data = data.branch
+      } else if (data.data && typeof data.data === 'object') {
+        data = data.data
+      }
+    }
+
+    return data
   } catch (error) {
     console.error(`Failed to fetch branch ${id}:`, error.response?.data || error.message)
     throw error

@@ -1,10 +1,5 @@
 <template>
-    <AppBar title="Catalogue Details">
-        <template #title-actions>
-            <v-btn text @click="goBack">Back</v-btn>
-            <v-btn color="primary" @click="editCatalogue" :disabled="isLoading">Edit</v-btn>
-        </template>
-    </AppBar>
+    <AppBar title="Catalogue Details" />
     <v-container>
         <StatusBanner 
             v-if="bannerMessage"
@@ -46,6 +41,23 @@
                         Print All QR Codes ({{ catalogue.books.length }} copies)
                     </v-btn>
                 </div>
+
+                <v-row class="mt-4" justify="end">
+                    <v-btn
+                        variant="outlined"
+                        class="mr-2 bg-white text-primary"
+                        @click="goBack"
+                    >
+                        Back
+                    </v-btn>
+                    <v-btn
+                        color="primary"
+                        @click="editCatalogue"
+                        :disabled="isLoading"
+                    >
+                        Edit
+                    </v-btn>
+                </v-row>
             </v-card-text>
         </v-card>
 
@@ -107,11 +119,11 @@ export default {
                 { label: 'ID', value: this.catalogue.id },
                 { label: 'Title', value: this.catalogue.title },
                 { label: 'Author', value: this.catalogue.author },
-                { label: 'ISBN', value: this.catalogue.isbn || 'N/A' },
-                { label: 'Publisher', value: this.catalogue.publisher || 'N/A' },
-                { label: 'Year of Publication', value: this.catalogue.year_of_publication || 'N/A' },
-                { label: 'Edition', value: this.catalogue.edition || 'N/A' },
-                { label: 'Call Number', value: this.catalogue.call_number || 'N/A' },
+                { label: 'ISBN', value: this.catalogue.isbn },
+                { label: 'Publisher', value: this.catalogue.publisher },
+                { label: 'Year of Publication', value: this.catalogue.year_of_publication },
+                { label: 'Edition', value: this.catalogue.edition },
+                { label: 'Call Number', value: this.catalogue.call_number },
                 { label: 'Branch', value: this.catalogue.branch ? this.catalogue.branch.name : `Branch ${this.catalogue.branch_id}` },
                 { label: 'Status', value: this.formatStatus(this.catalogue.cataloging_status) },
             ]
@@ -132,9 +144,9 @@ export default {
                         })
                     }
                 },
-                { label: 'Place of Publication', value: this.catalogue.place_of_publication || 'N/A' },
-                { label: 'Dewey Classification', value: this.catalogue.dewey || 'N/A' },
-                { label: 'Cutter Number', value: this.catalogue.cutter_number || 'N/A' },
+                { label: 'Place of Publication', value: this.catalogue.place_of_publication },
+                { label: 'Dewey Classification', value: this.catalogue.dewey },
+                { label: 'Cutter Number', value: this.catalogue.cutter_number },
                 { label: 'Number of Copies', value: this.catalogue.number_of_copies },
                 { label: 'Provisional', value: this.catalogue.is_provisional ? 'Yes' : 'No' },
             ]

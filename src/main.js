@@ -4,7 +4,7 @@ import router from './router';
 
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faBook, faCashRegister, faChevronLeft, faCircleUser, faHouse, faIdCard, faUserGraduate, faBookOpen, faHandshakeSimple, faClipboard, faUserTie, faUsers, faPencil, faEye, faBoxArchive, faPlus, faReceipt, faChevronRight, faQrcode, faSignOutAlt, faCogs, faUser, faMessage, faBell, faEarthAsia, faListCheck, faHandHoldingHand, faRotateBack, faRotateLeft, faFolder, faTimes, faFilter, faEyeSlash, faClockRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { faBook, faCashRegister, faChevronLeft, faCircleUser, faHouse, faIdCard, faUserGraduate, faBookOpen, faHandshakeSimple, faClipboard, faUserTie, faUsers, faPencil, faEye, faBoxArchive, faPlus, faReceipt, faChevronRight, faQrcode, faSignOutAlt, faCogs, faUser, faMessage, faBell, faEarthAsia, faListCheck, faHandHoldingHand, faRotateBack, faRotateLeft, faFolder, faTimes, faFilter, faEyeSlash, faClockRotateLeft, faArrowRightArrowLeft, faCalendarDay, faComment, faComments, faGlobe, faArrowUp, faArrowDown, faPaperPlane, faCheckSquare, faSquare, faAnglesLeft, faAnglesRight, faCircleInfo, faChevronDown, faMagnifyingGlass, faUserCog, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { faAddressCard } from '@fortawesome/free-regular-svg-icons';
 
 library.add(
@@ -43,7 +43,25 @@ library.add(
     faChevronRight,
     faCircleUser,
     faUserGraduate,
-    faCashRegister
+    faCashRegister,
+    faArrowRightArrowLeft,
+    faCalendarDay,
+    faComments,
+    faGlobe,
+    faChevronLeft,
+    faChevronRight,
+    faArrowUp,
+    faArrowDown,
+    faPaperPlane,
+    faCheckSquare,
+    faSquare,
+    faAnglesLeft,
+    faAnglesRight,
+    faCircleInfo,
+    faChevronDown,
+    faMagnifyingGlass,
+    faUserCog,
+    faEnvelope
 )
 
 import 'vuetify/styles'

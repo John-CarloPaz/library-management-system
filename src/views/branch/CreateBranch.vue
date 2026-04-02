@@ -48,18 +48,28 @@
                                 :rules="[v => !!v || 'Public IP is required', validateIp]"
                             />
 
+                            <v-text-field
+                                v-model="form.public_ipv6"
+                                label="Public IPv6 Address"
+                                variant="outlined"
+                                density="compact"
+                                class="mb-4"
+                            />
+
                             <v-checkbox
                                 v-model="form.is_main_branch"
                                 label="Mark as Main Branch"
                                 class="mb-4"
+                                true-icon="fas fa-check-square"
+                                false-icon="fas fa-square"
                             />
 
-                            <div class="d-flex gap-2">
-                                <v-btn color="primary" type="submit" :loading="submitting">
-                                    Create Branch
-                                </v-btn>
-                                <v-btn variant="outlined" @click="goBack">Cancel</v-btn>
-                            </div>
+                            <v-row>
+                                <v-col class="d-flex justify-end">
+                                    <v-btn text @click="goBack" class="mr-3" :disabled="submitting">Cancel</v-btn>
+                                    <v-btn color="primary" type="submit" :loading="submitting">Create Branch</v-btn>
+                                </v-col>
+                            </v-row>
                         </v-form>
                     </v-card-text>
                 </v-card>
@@ -93,6 +103,7 @@ export default {
                 address: '',
                 details: '',
                 public_ip: '',
+                public_ipv6: '',
                 is_main_branch: false,
             },
             submitting: false,
@@ -123,7 +134,10 @@ export default {
                 await createBranch(this.form)
                 this.$router.push({ name: 'branch-management' })
             } catch (error) {
-                this.showDialog('Error', `Failed to create branch: ${error.message}`, true)
+                // Prefer server-provided message (validation or general), fallback to error.message
+                const serverMsg = error?.response?.data?.message || (error?.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(' ') : null)
+                const message = serverMsg || (typeof error?.response?.data === 'string' ? error.response.data : error.message || 'Failed to create branch')
+                this.showDialog('Error', message, true)
             } finally {
                 this.submitting = false
             }

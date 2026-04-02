@@ -6,8 +6,12 @@
 
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
+import { getToken } from './auth'
 
-// Pusher configuration
+// API origin for auth endpoints
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+
+// Pusher/Echo base configuration
 const PUSHER_CONFIG = {
   broadcaster: 'pusher',
   key: import.meta.env.VITE_PUSHER_KEY || '57bc0eb6de62fba6ca94',
@@ -56,11 +60,41 @@ export function initializeEcho() {
     // Create Echo instance
     echoInstance = new Echo({
       ...PUSHER_CONFIG,
-      client: new Pusher(PUSHER_CONFIG.key, {
-        cluster: PUSHER_CONFIG.cluster,
-        forceTLS: PUSHER_CONFIG.forceTLS,
-        enabledTransports: PUSHER_CONFIG.enabledTransports,
-      }),
+      // Custom authorizer so private channels authenticate against the API origin
+      authorizer: (channel) => {
+        return {
+          authorize(socketId, callback) {
+            const token = getToken()
+            const url = `${API_ORIGIN}/broadcasting/auth`
+
+            fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                socket_id: socketId,
+                channel_name: channel.name,
+              }),
+            })
+              .then(async (response) => {
+                const data = await response.json().catch(() => ({}))
+                if (response.ok) {
+                  callback(null, data)
+                } else {
+                  console.error('Broadcast auth failed', response.status, data)
+                  callback(true, data)
+                }
+              })
+              .catch((error) => {
+                console.error('Broadcast auth error', error)
+                callback(true, error)
+              })
+          },
+        }
+      },
     })
 
     // Listen for connection events
@@ -85,6 +119,54 @@ export function initializeEcho() {
   } catch (error) {
     console.error('Failed to initialize Echo:', error)
     return null
+  }
+}
+
+/**
+ * Subscribe to a private 1-on-1 chat channel.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToChat(chatId, onMessage) {
+  const echo = getEcho()
+  if (!echo) {
+    console.error('Echo not initialized')
+    return () => {}
+  }
+
+  if (!chatId) {
+    console.error('chatId is required to subscribe to chat')
+    return () => {}
+  }
+
+  const channelName = `chat.${chatId}`
+  try {
+    console.log('[chat] Subscribing to channel', channelName)
+    const channel = echo.private(channelName)
+    const handler = (event) => {
+      try {
+        console.log('[chat] Received event payload', event)
+        if (typeof onMessage === 'function') {
+          onMessage(event)
+        }
+      } catch (e) {
+        console.error('Error in chat onMessage callback:', e)
+      }
+    }
+    // Support both custom broadcastAs name and default class-based names
+    channel.listen('.chat.message.sent', handler)
+    channel.listen('ChatMessageSent', handler)
+    channel.listen('App\\Events\\ChatMessageSent', handler)
+
+    return () => {
+      try {
+        echo.leave(channelName)
+      } catch (e) {
+        console.error('Failed to leave chat channel', channelName, e)
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to subscribe to chat channel ${channelName}:`, error)
+    return () => {}
   }
 }
 

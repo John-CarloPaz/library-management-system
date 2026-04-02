@@ -1,5 +1,5 @@
 <template>
-    <AppBar title="Borrow Book" />
+    <AppBar title="Return Book" />
 
     <v-container fluid class="pa-6">
         <v-row>
@@ -21,16 +21,20 @@
 
                     <v-row>
                         <v-col cols="12">
-                            <v-autocomplete v-model="selectedBook" :items="books" item-title="title"
-                                item-value="bookCode" label="Select book (search or pick)" clearable return-object
-                                density="comfortable">
-                                <template #item="{ item }">
-                                    <div>
-                                        <div class="font-weight-bold">{{ item.title }}</div>
-                                        <small class="text-grey">{{ item.author }} — {{ item.bookCode }}</small>
-                                    </div>
+                            <v-text-field
+                                v-model="referenceInput"
+                                label="Reference number"
+                                clearable
+                                density="compact"
+                                variant="solo-filled"
+                                hide-details="auto"
+                                placeholder="Enter reference number or paste from QR"
+                                @keyup.enter="searchByReference"
+                            >
+                                <template #append>
+                                    <v-btn size="small" color="primary" @click="searchByReference">Search</v-btn>
                                 </template>
-                            </v-autocomplete>
+                            </v-text-field>
                         </v-col>
 
                         <v-col cols="12" class="mt-4">
@@ -53,6 +57,29 @@
                                         selectedBook.notes }}</p>
                                 </div>
                                 <div v-else class="text-grey">No book selected.</div>
+                                <div class="mt-4">
+                                    <v-row>
+                                        <v-col cols="12" md="6">
+                                            <div v-if="currentBorrow">
+                                                <div v-if="currentBorrow.penalty_amount" class="d-flex align-center">
+                                                    <div class="text-caption text-grey mr-3">Penalty</div>
+                                                    <div class="text-subtitle-2 font-weight-medium text-error">${{ currentBorrow.penalty_amount }}</div>
+                                                </div>
+                                                <div v-if="currentBorrow.status === 'overdue'" class="mt-2">
+                                                    <v-chip size="small" color="error" variant="tonal" class="ma-0" elevation="0">Overdue</v-chip>
+                                                </div>
+                                            </div>
+                                        </v-col>
+                                        <v-col cols="12" md="6" class="d-flex align-center">
+                                            <v-switch v-if="currentBorrow && currentBorrow.status === 'overdue'" v-model="finePaid" label="Fine Paid" />
+                                        </v-col>
+                                        <v-col cols="12" class="mt-2">
+                                            <v-btn v-if="currentBorrow" variant="outlined" color="error" @click="openMarkLostConfirm">
+                                                Mark Lost
+                                            </v-btn>
+                                        </v-col>
+                                    </v-row>
+                                </div>
                             </v-card>
                         </v-col>
                     </v-row>
@@ -162,32 +189,9 @@
                         </v-col>
                     </v-row>
                 </v-card-text>
-            </v-card>
-        </v-dialog>
-
-        <!-- Penalty/Fine Fields (if book and student selected) -->
-        <v-row v-if="selectedBook && selectedStudent" class="mt-4">
-            <v-col cols="12" md="6">
-                <v-card elevation="2" class="pa-4">
-                    <h3 class="mb-4">Return Details</h3>
-                    <v-row>
-                        <v-col cols="12">
-                            <v-checkbox v-model="hasPenalty" label="Book returned with penalty/fine"></v-checkbox>
-                        </v-col>
-                        <v-col v-if="hasPenalty" cols="12">
-                            <v-text-field v-model.number="penaltyAmount" type="number" label="Penalty Amount ($)"
-                                step="0.01" min="0" />
-                        </v-col>
-                        <v-col v-if="hasPenalty" cols="12">
-                            <v-checkbox v-model="isPenaltyPaid" label="Penalty has been paid"></v-checkbox>
-                        </v-col>
-                        <v-col cols="12">
-                            <v-textarea v-model="returnRemarks" label="Return Remarks" rows="3"></v-textarea>
-                        </v-col>
-                    </v-row>
                 </v-card>
-            </v-col>
-        </v-row>
+                </v-dialog>
+        <!-- Return flags moved into Selected Book details -->
 
         <!-- Actions and Recent Returns (full width) -->
         <v-row class="mt-4">
@@ -205,7 +209,7 @@
                         <v-list-item v-for="(b, idx) in recentReturns" :key="idx">
                             <v-list-item-content>
                                 <v-list-item-title>{{ b.book.title }}</v-list-item-title>
-                                <v-list-item-subtitle>{{ b.student.name }} — {{ b.date }} <span v-if="b.penalty" class="text-error">(Penalty: ${{ b.penalty }})</span></v-list-item-subtitle>
+                                <v-list-item-subtitle>{{ b.student.name }} — {{ b.date }} <span v-if="b.penalty" class="text-error">(Penalty: ₱{{ b.penalty }})</span></v-list-item-subtitle>
                             </v-list-item-content>
                         </v-list-item>
                     </v-list>
@@ -222,15 +226,30 @@
         :isError="dialog.isError"
         @update:visible="dialog.visible = $event"
     />
+
+    <!-- Confirm Dialog -->
+    <v-dialog v-model="confirmDialog.visible" max-width="480px">
+        <v-card>
+            <v-card-title class="text-h6">{{ confirmDialog.title }}</v-card-title>
+            <v-card-text>
+                <div>{{ confirmDialog.message }}</div>
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer />
+                <v-btn variant="text" @click="confirmDialog.visible = false">Cancel</v-btn>
+                <v-btn color="error" @click="confirmDialogConfirmed">Confirm</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
 import AppBar from '../components/AppBar.vue'
 import ErrorDialog from '../components/ErrorDialog.vue'
-import { returnBook, getBorrowRecords } from '../services/borrow.js'
+import { returnBook, getBorrowRecords, updateBorrowRecord, getReturnDetails } from '../services/borrow.js'
 
 const router = useRouter()
 
@@ -248,19 +267,27 @@ const dialog = ref({
     isError: false
 })
 
+// Generic confirm dialog state
+const confirmDialog = ref({
+    visible: false,
+    title: '',
+    message: '',
+    action: null,
+    payload: null
+})
+
 // Loading state
 const isReturning = ref(false)
 
-// Return-specific fields
-const hasPenalty = ref(false)
-const penaltyAmount = ref(0)
-const isPenaltyPaid = ref(false)
+// Return-specific flags moved to book details
+const finePaid = ref(false)
 const returnRemarks = ref('')
 const recentReturns = ref([])
 
 const selectedBook = ref(null)
 const selectedStudent = ref(null)
 const lastScanned = ref('')
+const referenceInput = ref('')
 
 const scannerOpen = ref(false)
 const scannerMode = ref('book')
@@ -360,6 +387,57 @@ function onInit(promise) {
     }
 }
 
+async function searchByReference() {
+    const refVal = (referenceInput.value || '').toString().trim()
+    if (!refVal) return showDialog('Input required', 'Please enter a reference number to search.', true)
+    try {
+        const details = await getReturnDetails(refVal)
+        console.log('Search by reference result', details)
+        const borrowRec = details?.borrow || details?.data || (details && (details.id || details.student || details.book) ? details : null)
+        if (borrowRec) {
+            const mapped = {
+                id: borrowRec.id,
+                book: {
+                    title: borrowRec.book?.catalogue?.title || borrowRec.book?.title || borrowRec.book_title || '',
+                    author: borrowRec.book?.catalogue?.author || borrowRec.book?.author || borrowRec.book_author || '',
+                    bookCode: borrowRec.book?.reference_number || borrowRec.reference_number || ''
+                },
+                student: {
+                    id: borrowRec.student?.id || borrowRec.student_id || null,
+                    name: (borrowRec.student?.first_name || borrowRec.student?.name || '') + (borrowRec.student?.middle_name ? ' ' + borrowRec.student.middle_name : '') + (borrowRec.student?.last_name ? ' ' + borrowRec.student.last_name : ''),
+                    email: borrowRec.student?.email || '' ,
+                    studentId: borrowRec.student?.student_id || borrowRec.student_id || null
+                },
+                dueDate: borrowRec.due_date || borrowRec.dueDate || null,
+                status: borrowRec.status || 'borrowed',
+                is_fine_paid: !!borrowRec.is_fine_paid,
+                penalty_amount: borrowRec.penalty_amount || 0
+            }
+
+            const idx = borrowRecords.value.findIndex(r => r.id === mapped.id)
+            if (idx >= 0) {
+                borrowRecords.value.splice(idx, 1, mapped)
+            } else {
+                borrowRecords.value.unshift(mapped)
+            }
+
+            selectedStudent.value = mapped.student
+            selectedBook.value = mapped.book
+            currentBorrowId.value = mapped.id
+            finePaid.value = !!mapped.is_fine_paid
+            // clear input after successful lookup
+            referenceInput.value = ''
+        } else {
+            const msg = details?.message || 'No active borrow record found for this reference.'
+            showDialog('Return Info', msg, false)
+        }
+    } catch (err) {
+        console.warn('searchByReference failed', err)
+        const serverMsg = err?.response?.data?.message || err?.message || 'Failed to fetch return details.'
+        showDialog('Return Error', serverMsg, true)
+    }
+}
+
 function onScannerError(err) {
     console.error('Scanner error', err)
     // show more helpful message in console and update camera status
@@ -370,7 +448,7 @@ function onScannerError(err) {
     cameraStatus.value = 'error'
 }
 
-function onDecode(content) {
+async function onDecode(content) {
     lastScanned.value = content && content.toString ? content.toString() : String(content)
     const mode = scannerMode.value
 
@@ -382,6 +460,11 @@ function onDecode(content) {
     } catch (e) {
         parsed = null
     }
+
+    // Log raw incoming scan for debugging
+    try {
+        console.log('QR scan decoded', { raw: content, text, parsed, mode: scannerMode.value })
+    } catch (e) { console.warn('Failed to log QR scan', e) }
 
     // Handle book mode only
     if (mode === 'book') {
@@ -409,13 +492,122 @@ function onDecode(content) {
             fb = books.value.find(b => text.includes(String(b.bookCode)))
         }
 
+        // If not found locally, try backend lookup by reference/text
+        if (!fb) {
+            const searchKey = parsed?.reference_number || parsed?.book?.reference_number || parsed?.bookCode || parsed?.code || text
+            try {
+                const details = await getReturnDetails(searchKey)
+                console.log('Return details response (lookup by text)', details)
+                const borrowRec = details?.borrow || details?.data || (details && (details.id || details.student || details.book) ? details : null)
+                if (borrowRec) {
+                    // Map backend borrow record into frontend shape and upsert into borrowRecords
+                    const mapped = {
+                        id: borrowRec.id,
+                        book: {
+                            title: borrowRec.book?.catalogue?.title || borrowRec.book?.title || borrowRec.book_title || '',
+                            author: borrowRec.book?.catalogue?.author || borrowRec.book?.author || borrowRec.book_author || '',
+                            bookCode: borrowRec.book?.reference_number || borrowRec.reference_number || ''
+                        },
+                        student: {
+                            id: borrowRec.student?.id || borrowRec.student_id || null,
+                            name: (borrowRec.student?.first_name || borrowRec.student?.name || '') + (borrowRec.student?.middle_name ? ' ' + borrowRec.student.middle_name : '') + (borrowRec.student?.last_name ? ' ' + borrowRec.student.last_name : ''),
+                            email: borrowRec.student?.email || '' ,
+                            studentId: borrowRec.student?.student_id || borrowRec.student_id || null
+                        },
+                        dueDate: borrowRec.due_date || borrowRec.dueDate || null,
+                        status: borrowRec.status || 'borrowed',
+                        is_fine_paid: !!borrowRec.is_fine_paid,
+                        penalty_amount: borrowRec.penalty_amount || 0
+                    }
+
+                    const idx = borrowRecords.value.findIndex(r => r.id === mapped.id)
+                    if (idx >= 0) {
+                        borrowRecords.value.splice(idx, 1, mapped)
+                    } else {
+                        borrowRecords.value.unshift(mapped)
+                    }
+
+                    selectedStudent.value = mapped.student
+                    selectedBook.value = mapped.book
+                    currentBorrowId.value = mapped.id
+                    finePaid.value = !!mapped.is_fine_paid
+                    // close scanner
+                    scannerOpen.value = false
+                    cameraStatus.value = 'stopped'
+                    return
+                }
+
+                // no borrow record returned
+                scannerOpen.value = false
+                cameraStatus.value = 'stopped'
+                const msg = details?.message || 'No active borrow record found for this book.'
+                showDialog('Return Info', msg, false)
+                return
+            } catch (err) {
+                scannerOpen.value = false
+                cameraStatus.value = 'stopped'
+                const serverMsg = err?.response?.data?.message || err?.message || 'Failed to fetch return details.'
+                showDialog('Return Error', serverMsg, true)
+                return
+            }
+        }
+
         if (fb) {
             selectedBook.value = fb
-            // also set matching student and borrow ID
-            const rec = borrowRecords.value.find(r => r.book.bookCode === fb.bookCode)
-            if (rec) {
-                selectedStudent.value = rec.student
-                currentBorrowId.value = rec.id
+            // Prefer fetching fresh return details from the dedicated endpoint
+            try {
+                const details = await getReturnDetails(fb.bookCode)
+                console.log('Return details response', details)
+                // backend may return an object with the borrow record or nested fields
+                const borrowRec = details?.borrow || details?.data || (details && (details.id || details.student || details.book) ? details : null)
+                if (borrowRec) {
+                    // Map backend borrow record into frontend shape and upsert into borrowRecords
+                    const mapped = {
+                        id: borrowRec.id,
+                        book: {
+                            title: borrowRec.book?.catalogue?.title || borrowRec.book?.title || borrowRec.book_title || fb.title || '',
+                            author: borrowRec.book?.catalogue?.author || borrowRec.book?.author || borrowRec.book_author || fb.author || '',
+                            bookCode: borrowRec.book?.reference_number || borrowRec.book?.reference_number || borrowRec.reference_number || fb.bookCode || fb.bookCode
+                        },
+                        student: {
+                            id: borrowRec.student?.id || borrowRec.student_id || null,
+                            name: (borrowRec.student?.first_name || borrowRec.student?.name || '') + (borrowRec.student?.middle_name ? ' ' + borrowRec.student.middle_name : '') + (borrowRec.student?.last_name ? ' ' + borrowRec.student.last_name : ''),
+                            email: borrowRec.student?.email || '' ,
+                            studentId: borrowRec.student?.student_id || borrowRec.student_id || null
+                        },
+                        dueDate: borrowRec.due_date || borrowRec.dueDate || null,
+                        status: borrowRec.status || 'borrowed',
+                        is_fine_paid: !!borrowRec.is_fine_paid,
+                        penalty_amount: borrowRec.penalty_amount || 0
+                    }
+
+                    const idx = borrowRecords.value.findIndex(r => r.id === mapped.id)
+                    if (idx >= 0) {
+                        borrowRecords.value.splice(idx, 1, mapped)
+                    } else {
+                        borrowRecords.value.unshift(mapped)
+                    }
+
+                    selectedStudent.value = mapped.student
+                    selectedBook.value = mapped.book
+                    currentBorrowId.value = mapped.id
+                    finePaid.value = !!mapped.is_fine_paid
+                } else {
+                    // No borrow record returned — close scanner and show API message
+                    scannerOpen.value = false
+                    cameraStatus.value = 'stopped'
+                    const msg = details?.message || 'No active borrow record found for this book.'
+                    showDialog('Return Info', msg, false)
+                    return
+                }
+            } catch (err) {
+                // On error, close scanner and show API error message
+                console.warn('getReturnDetails failed', err)
+                scannerOpen.value = false
+                cameraStatus.value = 'stopped'
+                const serverMsg = err?.response?.data?.message || err?.message || 'Failed to fetch return details.'
+                showDialog('Return Error', serverMsg, true)
+                return
             }
             // close scanner and update camera status
             scannerOpen.value = false
@@ -454,6 +646,13 @@ function onDecode(content) {
         }
 
         if (fs) {
+            console.log('QR decoded - student', { raw: content, text, parsed, candidates, matched: fs })
+            // also log if we can find a matching borrow record for this student
+            const matchedRec = borrowRecords.value.find(r => r.student && (String(r.student.id) === String(fs.id) || (r.student.email && fs.email && r.student.email.toLowerCase() === fs.email.toLowerCase()) || (r.student.studentId && fs.studentId && String(r.student.studentId) === String(fs.studentId))))
+            if (matchedRec) {
+                console.log('Matched borrow record for scanned student', matchedRec)
+                currentBorrowId.value = matchedRec.id
+            }
             selectedStudent.value = fs
             scannerOpen.value = false
             cameraStatus.value = 'stopped'
@@ -467,6 +666,8 @@ function onDecode(content) {
 
 const canReturn = computed(() => !!selectedBook.value && !!selectedStudent.value)
 
+const currentBorrow = computed(() => borrowRecords.value.find(r => r.id === currentBorrowId.value) || null)
+
 function showDialog(title, message, isError = false) {
     dialog.value = {
         visible: true,
@@ -478,47 +679,50 @@ function showDialog(title, message, isError = false) {
 
 async function confirmReturn() {
     if (!canReturn.value) return
-    
+
     isReturning.value = true
-    
+
     try {
         if (!currentBorrowId.value) {
             showDialog('Return Error', 'No matching borrow record found for this book and borrower.', true)
             return
         }
 
+        const current = currentBorrow.value
         const payload = {
-            status: 'returned',
             return_date: new Date().toISOString().split('T')[0],
-            penalty_amount: hasPenalty.value ? penaltyAmount.value : 0,
-            is_fine_paid: isPenaltyPaid.value,
             remarks: returnRemarks.value
         }
-        
+
+        // Ensure we send the fine flag to the backend when the borrow is overdue
+        if (current && current.status === 'overdue') {
+            payload.is_fine_paid = !!finePaid.value
+        }
+
+        console.log('Returning borrow id', currentBorrowId.value, 'with payload', payload)
         const result = await returnBook(currentBorrowId.value, payload)
-        
+
         // Add to recent returns display
         const record = {
             book: selectedBook.value,
             student: selectedStudent.value,
             date: new Date().toLocaleString(),
-            penalty: hasPenalty.value ? penaltyAmount.value : null
+            penalty: null
         }
         recentReturns.value.unshift(record)
-        
+
         // Reset form
         selectedBook.value = null
         selectedStudent.value = null
         currentBorrowId.value = null
-        hasPenalty.value = false
-        penaltyAmount.value = 0
-        isPenaltyPaid.value = false
+        finePaid.value = false
         returnRemarks.value = ''
-        
+
         console.log('Return successful:', result)
     } catch (error) {
         console.error('Return failed:', error)
-        showDialog('Return Error', error.message || 'Failed to return book', true)
+        const serverMsg = error?.response?.data?.message || error?.response?.data || error?.message || 'Failed to return book'
+        showDialog('Return Error', serverMsg, true)
     } finally {
         isReturning.value = false
     }
@@ -551,11 +755,14 @@ async function loadBorrowData() {
         const data = await getBorrowRecords()
         const raw = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : [])
 
-        // Keep only active/borrowed records
+        // Keep only records that are currently borrowed (including overdue)
         borrowRecords.value = raw
-            .filter(r => (r.status || 'borrowed') === 'borrowed')
+            .filter(r => {
+                const status = (r.status || '').toString().toLowerCase()
+                return status === 'borrowed' || status === 'overdue'
+            })
             .map(record => ({
-                id: record.id,
+                        id: record.id,
                 book: {
                     title: record.book?.title || record.book_title || '',
                     author: record.book?.author || record.book_author || '',
@@ -568,7 +775,9 @@ async function loadBorrowData() {
                     studentId: record.student?.student_id || record.student_id_number || null,
                 },
                 dueDate: record.due_date,
-                status: record.status || 'borrowed',
+                        status: record.status || 'borrowed',
+                        is_fine_paid: !!record.is_fine_paid,
+                        penalty_amount: record.penalty_amount || 0,
             }))
 
         // Derive unique books and students for dropdowns
@@ -596,6 +805,76 @@ async function loadBorrowData() {
 onMounted(() => {
     loadBorrowData()
 })
+
+// react to book selection to populate flags and current borrow id
+watch(selectedBook, (val) => {
+    if (!val) {
+        finePaid.value = false
+        currentBorrowId.value = null
+        return
+    }
+    const rec = borrowRecords.value.find(r => r.book.bookCode === val.bookCode)
+    if (rec) {
+        finePaid.value = !!rec.is_fine_paid
+        currentBorrowId.value = rec.id
+        // also set student if not set
+        if (!selectedStudent.value) selectedStudent.value = rec.student
+    } else {
+        finePaid.value = false
+        currentBorrowId.value = null
+    }
+})
+
+async function markLost() {
+    // Deprecated: use confirm flow via openMarkLostConfirm -> confirmDialogConfirmed
+    if (!currentBorrowId.value) return showDialog('Error', 'No active borrow selected to mark lost.', true)
+    // fallback direct action if called programmatically
+    try {
+        await updateBorrowRecord(currentBorrowId.value, { status: 'lost', is_fine_paid: !!finePaid.value })
+        showDialog('Success', 'Borrow marked as lost.')
+        // refresh data
+        await loadBorrowData()
+        // clear selection
+        selectedBook.value = null
+        selectedStudent.value = null
+        finePaid.value = false
+    } catch (err) {
+        console.error('Failed to mark lost:', err)
+        showDialog('Error', err.message || 'Failed to mark as lost.', true)
+    }
+}
+
+function openMarkLostConfirm() {
+    if (!currentBorrowId.value) return showDialog('Error', 'No active borrow selected to mark lost.', true)
+    confirmDialog.value = {
+        visible: true,
+        title: 'Confirm Mark Lost',
+        message: 'Are you sure you want to mark this borrow record as LOST? This action cannot be easily undone.',
+        action: 'mark_lost',
+        payload: { borrowId: currentBorrowId.value }
+    }
+}
+
+async function confirmDialogConfirmed() {
+    const { action, payload } = confirmDialog.value || {}
+    confirmDialog.value.visible = false
+    if (!action) return
+    if (action === 'mark_lost') {
+        const id = payload?.borrowId || currentBorrowId.value
+        if (!id) return showDialog('Error', 'No active borrow selected to mark lost.', true)
+        try {
+            await updateBorrowRecord(id, { status: 'lost', is_fine_paid: !!finePaid.value })
+            showDialog('Success', 'Borrow marked as lost.')
+            await loadBorrowData()
+            selectedBook.value = null
+            selectedStudent.value = null
+            finePaid.value = false
+        } catch (err) {
+            console.error('Failed to mark lost:', err)
+            showDialog('Error', err.message || 'Failed to mark as lost.', true)
+        }
+    }
+}
 </script>
 
 <style scoped>

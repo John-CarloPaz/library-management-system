@@ -10,6 +10,13 @@
         :items-length="itemsLength"
         :item-key="itemKey"
         :loading="loading"
+        sort-desc-icon="fas fa-arrow-down"
+        sort-asc-icon="fas fa-arrow-up"
+        next-icon="fas fa-chevron-right"
+        prev-icon="fas fa-chevron-left"
+        first-icon="fas fa-angles-left"
+        last-icon="fas fa-angles-right"
+        expand-icon="fas fa-circle-info"
         class="elevation-2 table--reusable"
         @update:options="onUpdateOptions"
     >

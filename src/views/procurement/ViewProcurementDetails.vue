@@ -1,10 +1,5 @@
 <template>
-    <AppBar title="Procurement Details">
-        <template #title-actions>
-            <v-btn text @click="goBack">Back</v-btn>
-            <v-btn color="primary" @click="editProcurement" :disabled="isLoading">Edit</v-btn>
-        </template>
-    </AppBar>
+    <AppBar title="Procurement Details" />
     <v-container>
         <StatusBanner 
             v-if="bannerMessage"
@@ -14,7 +9,7 @@
             class="mt-4"
         />
 
-        <v-card elevation="1" class="py-3" v-if="!isLoading">
+        <v-card elevation="0" class="py-3" v-if="!isLoading">
             <v-card-text>
                 <InfoTable 
                     title="Procurement Information"
@@ -39,6 +34,23 @@
                         </template>
                     </Table>
                 </div>
+
+                <v-row class="mt-4" justify="end">
+                    <v-btn
+                        variant="outlined"
+                        class="mr-2 bg-white text-primary"
+                        @click="goBack"
+                    >
+                        Back
+                    </v-btn>
+                    <v-btn
+                        color="primary"
+                        @click="editProcurement"
+                        :disabled="isLoading"
+                    >
+                        Edit
+                    </v-btn>
+                </v-row>
             </v-card-text>
         </v-card>
 
@@ -90,17 +102,17 @@ export default {
                 { label: 'ID', value: this.procurement.id },
                 { label: 'Title', value: this.procurement.title },
                 { label: 'Author', value: this.procurement.author },
-                { label: 'Publisher', value: this.procurement.publisher || 'N/A' },
-                { label: 'ISBN', value: this.procurement.isbn || 'N/A' },
+                { label: 'Publisher', value: this.procurement.publisher },
+                { label: 'ISBN', value: this.procurement.isbn },
             ]
         },
         requestFieldsData() {
             if (!this.procurement) return []
 
             return [
-                { label: 'Edition', value: this.procurement.edition || 'N/A' },
-                { label: 'Place of Publication', value: this.procurement.place_of_publication || 'N/A' },
-                { label: 'Year of Publication', value: this.procurement.year_of_publication || 'N/A' },
+                { label: 'Edition', value: this.procurement.edition },
+                { label: 'Place of Publication', value: this.procurement.place_of_publication },
+                { label: 'Year of Publication', value: this.procurement.year_of_publication },
                 { label: 'Quantity Requested', value: this.procurement.quantity_requested },
                 { label: 'Approval Status', value: this.formatApprovalStatus(this.procurement.admin_approval) },
                 { label: 'Requested By', value: this.procurement.created_by },

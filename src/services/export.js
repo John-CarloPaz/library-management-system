@@ -79,15 +79,51 @@ export function generateXml(items = [], headersOrFields = [], options = {}) {
 }
 
 export function triggerDownload(filename, content, mime) {
-  const blob = new Blob([content], { type: mime || 'application/octet-stream' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename || 'download';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const safeFilename = filename || 'download';
+
+  // Primary approach: Blob + object URL
+  try {
+    const blob = new Blob([content], { type: mime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = safeFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
+    return;
+  } catch (e) {
+    console.warn('Blob download failed, falling back to data URI:', e);
+  }
+
+  // Fallback: data URI (may be blocked for large files in some browsers)
+  try {
+    const dataUrl = `data:${mime || 'application/octet-stream'};charset=utf-8,` + encodeURIComponent(content);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = safeFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  } catch (err) {
+    console.warn('Data URI download failed, opening content in a new tab as last resort:', err);
+  }
+
+  // Last-resort: open content in a new tab/window so user can save manually
+  try {
+    const w = window.open('', '_blank');
+    if (w) {
+      // Use a preformatted block to preserve JSON/CSV formatting
+      w.document.write('<pre>' + String(content).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>');
+      w.document.close();
+    } else {
+      console.error('Unable to open new window for download fallback');
+    }
+  } catch (finalErr) {
+    console.error('Final download fallback failed:', finalErr);
+  }
 }
 
 // Convenience helpers
